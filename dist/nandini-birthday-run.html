@@ -458,7 +458,9 @@ SHEET.src = assetUrl('nandini');
 const FRAMES = ['idle', 'blink', 'wave', 'kiss', 'walk1', 'run1', 'walk2', 'run2',
                 'jump', 'fall', 'hurt', 'cheer'];
 const FRAME_INDEX = Object.fromEntries(FRAMES.map((n, i) => [n, i]));
-const RUN_CYCLE = ['run1', 'run2'];
+// The full four-frame cycle from the reference, in the order it was drawn:
+// two contact poses, then the two airborne strides.
+const RUN_CYCLE = ['walk1', 'walk2', 'run1', 'run2'];
 let CELL_W = 42;
 let CELL_H = 48;
 
@@ -1557,7 +1559,8 @@ function updatePlay(dt) {
   if (wasGrounded && !p.grounded && p.vy >= 0) p.coyote = Math.max(p.coyote, COYOTE_TIME);
 
   p.x = clamp(p.x, PLAYER_W / 2, L.width - PLAYER_W / 2);
-  if (p.grounded && Math.abs(p.vx) > 20) p.runPhase += dt * (6 + Math.abs(p.vx) / 34);
+  // paced for a four-frame cycle: about 11 frames a second at a full run
+  if (p.grounded && Math.abs(p.vx) > 20) p.runPhase += dt * (4 + Math.abs(p.vx) / 40);
   p.idleTime = p.grounded && dir === 0 && Math.abs(p.vx) < 20 ? p.idleTime + dt : 0;
   p.invuln = Math.max(0, p.invuln - dt);
   p.fadeIn = Math.max(0, p.fadeIn - dt);

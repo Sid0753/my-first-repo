@@ -271,7 +271,8 @@ function updatePlay(dt) {
   if (wasGrounded && !p.grounded && p.vy >= 0) p.coyote = Math.max(p.coyote, COYOTE_TIME);
 
   p.x = clamp(p.x, PLAYER_W / 2, L.width - PLAYER_W / 2);
-  if (p.grounded && Math.abs(p.vx) > 20) p.runPhase += dt * (6 + Math.abs(p.vx) / 34);
+  // paced for a four-frame cycle: about 11 frames a second at a full run
+  if (p.grounded && Math.abs(p.vx) > 20) p.runPhase += dt * (4 + Math.abs(p.vx) / 40);
   p.idleTime = p.grounded && dir === 0 && Math.abs(p.vx) < 20 ? p.idleTime + dt : 0;
   p.invuln = Math.max(0, p.invuln - dt);
   p.fadeIn = Math.max(0, p.fadeIn - dt);

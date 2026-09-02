@@ -121,7 +121,9 @@ SHEET.src = assetUrl('nandini');
 const FRAMES = ['idle', 'blink', 'wave', 'kiss', 'walk1', 'run1', 'walk2', 'run2',
                 'jump', 'fall', 'hurt', 'cheer'];
 const FRAME_INDEX = Object.fromEntries(FRAMES.map((n, i) => [n, i]));
-const RUN_CYCLE = ['run1', 'run2'];
+// The full four-frame cycle from the reference, in the order it was drawn:
+// two contact poses, then the two airborne strides.
+const RUN_CYCLE = ['walk1', 'walk2', 'run1', 'run2'];
 let CELL_W = 42;
 let CELL_H = 48;
 
