@@ -85,3 +85,21 @@ body {
   #touch-controls { display: flex; }
   #footnote { display: none; }
 }
+
+/* On a phone held upright, turn the whole stage sideways so the game is always
+   landscape. The player just turns the device; the picture is already the right
+   way round. Rotating the stage rather than asking the browser to lock the
+   orientation is what makes this work on iOS, where the lock API does nothing.
+   The touch buttons live inside the stage, so they come round with it.
+
+   Only for screens too narrow to hold the game upright — a tablet in portrait
+   has the width already, and turning its picture sideways would just be rude.
+   Keep this selector in step with PORTRAIT_PHONE in js/game.js. */
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) and (max-width: 700px) {
+  #stage {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+}

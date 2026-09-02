@@ -12,6 +12,7 @@ const WORLD_VIEW = { w: BUF.w / ART, h: BUF.h / ART };
 let SCALE = 0;   // art pixels -> css pixels, always a whole number (0 = not laid out yet)
 let DPR = 1;
 let STORE = 1;   // whole-number scale of the backing store
+let TURNED = null;
 
 // Movement constants. The level maps in levels.js are designed against these:
 // a full jump clears 131px (3 tiles) of height and about 190px of distance.
@@ -483,18 +484,27 @@ function overlayText() {
 /* Size the canvas to a whole-number multiple of the art resolution. Anything
  * else would resample the pixels unevenly and make some of them fatter than
  * others. */
+/* True when the stylesheet has turned the stage sideways, which swaps the space
+ * the game has to fit into. Must match the matching rule in css/style.css. */
+const PORTRAIT_PHONE = window.matchMedia(
+  '(hover: none) and (pointer: coarse) and (orientation: portrait) and (max-width: 700px)');
+
 function layout() {
   const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
   const foot = document.getElementById('footnote');
   const footH = foot && getComputedStyle(foot).display !== 'none' ? foot.offsetHeight + 12 : 4;
-  const availW = document.documentElement.clientWidth - 8;
-  const availH = document.documentElement.clientHeight - footH - 8;
+  const turned = PORTRAIT_PHONE.matches;
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const availW = (turned ? vh : vw) - 8;
+  const availH = (turned ? vw : vh) - footH - 8;
   // Whole-number zoom keeps every art pixel the same size. Only when the
   // window is smaller than the art itself do we fall back to a fractional
   // scale, because the alternative is not fitting on screen at all.
   const fit = Math.min(availW / BUF.w, availH / BUF.h);
   const s = fit >= 1 ? Math.floor(fit) : Math.max(0.35, fit);
-  if (s === SCALE && dpr === DPR) return;
+  if (s === SCALE && dpr === DPR && turned === TURNED) return;
+  TURNED = turned;
   SCALE = s;
   DPR = dpr;
   const store = Math.max(1, Math.round(s));   // backing store stays whole
@@ -642,6 +652,8 @@ function frame(now) {
 loadProgress();
 layout();
 window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', layout);
+PORTRAIT_PHONE.addEventListener('change', layout);
 Input.bindTouch(document.getElementById('btn-left'), 'left');
 Input.bindTouch(document.getElementById('btn-right'), 'right');
 Input.bindTouch(document.getElementById('btn-jump'), 'jump');

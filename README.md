@@ -38,7 +38,10 @@ node tools/build-single-file.js
 | Back to the title screen | `Esc` |
 | Mute | `M` |
 
-On a phone or tablet, on-screen buttons appear automatically.
+On a phone or tablet, on-screen buttons appear automatically. Phones held upright
+turn the picture sideways so the game is always landscape — just turn the device,
+it is already the right way round. (Tablets are wide enough in portrait, so they
+are left alone.)
 
 ## The levels
 
