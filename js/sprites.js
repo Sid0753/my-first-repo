@@ -111,8 +111,13 @@ function bake(w, h, draw, outline = true) {
 
 /* The character art is a spritesheet: nine 42x48 frames, feet flush with the
  * bottom of each cell. */
+/* Asset paths go through one lookup so a single-file build can swap them for
+ * inlined data URIs without touching the rest of the code. */
+const ASSET_URLS = (typeof window !== 'undefined' && window.ASSET_URLS) || {};
+const assetUrl = (name) => ASSET_URLS[name] || `assets/${name}.png`;
+
 const SHEET = new Image();
-SHEET.src = 'assets/nandini.png';
+SHEET.src = assetUrl('nandini');
 const CELL_W = 42;
 const CELL_H = 48;
 const FRAMES = ['idle', 'walk1', 'run1', 'walk2', 'run2', 'jump', 'fall', 'hurt', 'cheer'];
@@ -493,7 +498,7 @@ const SKY_CACHE = {};
 function skyImage(name) {
   if (!SKY_CACHE[name]) {
     const img = new Image();
-    img.src = `assets/${name}.png`;
+    img.src = assetUrl(name);
     SKY_CACHE[name] = img;
   }
   return SKY_CACHE[name];

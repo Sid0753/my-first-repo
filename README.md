@@ -11,12 +11,22 @@ and a hand-cut character spritesheet.
 
 ## Play it
 
-It's plain HTML, CSS and JavaScript with no build step and no dependencies.
+It's plain HTML, CSS and JavaScript with no dependencies.
 
 - **Locally:** open `index.html` in any browser. That's it.
 - **Online:** push this repo and turn on GitHub Pages (Settings → Pages → deploy from
   `main`, folder `/root`). The game will be at
   `https://<your-username>.github.io/my-first-repo/`.
+- **As one file:** `dist/nandini-birthday-run.html` is the whole game — code, character
+  spritesheet and skies — inlined into a single document. Double-click it, mail it to
+  someone, or drop it on any static host. It needs nothing alongside it.
+
+`dist/` is generated. Rebuild it after changing anything under `js/`, `css/` or
+`assets/`:
+
+```
+node tools/build-single-file.js
+```
 
 ## Controls
 
@@ -51,6 +61,8 @@ js/sprites.js       terrain, background, props and the character renderer
 js/input.js         keyboard and touch input
 js/audio.js         small WebAudio blips, and the win jingle
 js/game.js          physics, collision, camera, game states, the main loop
+tools/              the single-file bundler
+dist/               generated: the whole game as one HTML file
 ```
 
 ### The art
