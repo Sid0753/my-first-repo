@@ -45,6 +45,7 @@ the start. The coins are optional — they're just there to be found.
 index.html          page shell, canvas, touch buttons
 css/style.css       layout and the on-screen controls
 assets/nandini.png  the character spritesheet: 9 frames, 42x48 each
+assets/sky-*.png    the three painted skies (day, rose, dusk)
 js/levels.js        the three levels, drawn as ASCII maps, plus the map parser
 js/sprites.js       terrain, background, props and the character renderer
 js/input.js         keyboard and touch input
@@ -63,12 +64,14 @@ Nandini herself is a spritesheet in `assets/nandini.png` — idle, walk, run, ju
 fall, hurt and cheer frames, all cut to one scale and aligned on the feet so she
 never shifts as the animation plays.
 
+Each level has a painted sky in `assets/`, drawn twice — once normally, once
+mirrored — so the slow horizontal parallax never runs off the end or shows a seam.
+
 Everything else is drawn in code: the terrain tiles (baked once per level into a
 few variants, with notched grass caps, grass dripping into the dirt and speckled
-soil), trees and bushes scattered deterministically, the ordered-dither sky, the
-clouds, the horizon tree line, the cake and its goal flag, the spinning coins, the
-balloons, the spikes and the HUD. The sound is synthesised with WebAudio. So apart
-from the one spritesheet there is nothing to lose track of.
+soil), trees and bushes scattered deterministically, the two horizon foliage
+bands, the cake and its goal flag, the spinning coins, the balloons, the spikes
+and the HUD. The sound is synthesised with WebAudio.
 
 ### Editing a level
 

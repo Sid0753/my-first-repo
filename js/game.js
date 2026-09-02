@@ -384,7 +384,7 @@ function drawHUDText() {
 
 function titleScene() {
   // Sunset sky over green ground, as in the design reference.
-  if (!state.titleLevel) state.titleLevel = buildLevel({ ...LEVELS[0], sky: LEVELS[2].sky, title: true });
+  if (!state.titleLevel) state.titleLevel = buildLevel({ ...LEVELS[0], skyImage: 'sky-dusk', sky: LEVELS[2].sky, title: true });
   drawBackground(bctx, state.titleLevel, { x: 400, y: 240 }, BUF, state.time);
 
   // a strip of ground for her to stand on

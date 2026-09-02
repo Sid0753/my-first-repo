@@ -486,77 +486,19 @@ function mixHex(a, b, t) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
-/* The sky is banded, with each band dithered into the next and a halftone dot
- * pattern over the top — the two things that make the reference skies read as
- * 8-bit rather than as a gradient. Baked once per level. */
-function bakeSky(level, w, h) {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const g = c.getContext('2d');
-  const img = g.createImageData(w, h);
-  const d = img.data;
-
-  const BANDS = 7;
-  const bandH = h / BANDS;
-  const DITH = Math.round(bandH * 0.75);   // wide, so the blend is the feature
-  const cols = [];
-  for (let i = 0; i < BANDS; i++) cols.push(rgbOf(mixHex(level.sky[0], level.sky[1], i / (BANDS - 1))));
-  const dots = cols.map((col) => col.map((v) => Math.min(255, Math.round(v + (255 - v) * 0.18))));
-
-  for (let y = 0; y < h; y++) {
-    const bi = Math.min(BANDS - 1, Math.floor(y / bandH));
-    const toNext = (bi + 1) * bandH - y;
-    for (let x = 0; x < w; x++) {
-      let ci = bi;
-      // 2x2 dither cells: the reference art blends in chunky blocks, not
-      // single pixels
-      if (bi < BANDS - 1 && toNext <= DITH &&
-          BAYER[(y >> 1) & 3][(x >> 1) & 3] < (1 - toNext / DITH) * 16) ci = bi + 1;
-      let col = cols[ci];
-      if (((x >> 1) & 3) === 1 && ((y >> 1) & 3) === 1 && y < h * 0.85) col = dots[ci];
-      const o = (y * w + x) * 4;
-      d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255;
-    }
+/* The skies are painted images, one per level, scaled to the buffer width.
+ * They are drawn twice — once normally, once mirrored — so the slow horizontal
+ * parallax never runs off the end or shows a seam. */
+const SKY_CACHE = {};
+function skyImage(name) {
+  if (!SKY_CACHE[name]) {
+    const img = new Image();
+    img.src = `assets/${name}.png`;
+    SKY_CACHE[name] = img;
   }
-  g.putImageData(img, 0, 0);
-  return c;
+  return SKY_CACHE[name];
 }
-
-/* Chunky cumulus: white body, lit top edge, shaded flat underside. */
-function bakeCloud(blobs, w, h, body, shade) {
-  return bake(w, h, (g) => {
-    for (const [x, y, r] of blobs) disc(g, x, y, r, body);
-    const img = g.getImageData(0, 0, w, h);
-    const d = img.data;
-    for (let x = 0; x < w; x++) {
-      let bottom = -1;
-      for (let y = h - 1; y >= 0; y--) if (d[(y * w + x) * 4 + 3]) { bottom = y; break; }
-      if (bottom < 0) continue;
-      g.fillStyle = shade;
-      g.fillRect(x, Math.max(0, bottom - 2), 1, 3);
-      let top = 0;
-      for (let y = 0; y < h; y++) if (d[(y * w + x) * 4 + 3]) { top = y; break; }
-      g.fillStyle = '#ffffff';
-      g.fillRect(x, top, 1, 1);
-    }
-  }, false);
-}
-
-const CLOUD_SHAPES = [
-  [[[16, 22, 9], [30, 16, 13], [48, 21, 10], [62, 24, 7], [40, 26, 12]], 76, 34],
-  [[[12, 14, 7], [24, 10, 9], [37, 14, 7]], 48, 22],
-  [[[9, 9, 6], [19, 7, 7], [28, 10, 5]], 36, 16],
-];
-
-function levelClouds(level) {
-  if (!level._clouds) {
-    const body = mixHex('#ffffff', level.sky[0], 0.1);
-    const shade = mixHex(body, level.sky[0], 0.42);
-    level._clouds = CLOUD_SHAPES.map(([blobs, w, h]) => bakeCloud(blobs, w, h, body, shade));
-  }
-  return level._clouds;
-}
+['sky-day', 'sky-rose', 'sky-dusk'].forEach(skyImage);
 
 /* The dark falloff under the horizon, so gaps in the floor read as real drops
  * and not as more hillside. Dithered, and baked once. */
@@ -582,23 +524,22 @@ const SCRIM = (() => {
 })();
 
 function drawBackground(ctx, level, cam, buf, t) {
-  if (!level._sky) level._sky = bakeSky(level, buf.w, buf.h);
-  ctx.drawImage(level._sky, 0, 0);
-
   const camX = cam.x * ART;
   const camY = cam.y * ART;
 
-  const clouds = levelClouds(level);
-  const cloudCount = level.title ? 5 : 12;
-  for (let i = 0; i < cloudCount; i++) {
-    const spr = clouds[i % clouds.length];
-    const span = buf.w + 700;
-    const bx = Math.round(((i * 431) % span) - ((camX * 0.22) % span));
-    const by = level.title
-      ? 6 + ((i * 29) % 30)                       // kept above the title text
-      : Math.round(18 + ((i * 97) % 120) - camY * 0.1);
-    if (bx < -spr.width || bx > buf.w) continue;
-    ctx.drawImage(spr, bx, by);
+  const sky = skyImage(level.skyImage);
+  if (sky.complete && sky.naturalWidth) {
+    const sw = sky.naturalWidth;
+    const ox = Math.round(camX * 0.16) % sw;
+    const oy = Math.round(Math.min(Math.max(0, sky.naturalHeight - buf.h), camY * 0.12));
+    ctx.drawImage(sky, 0, oy, sw, buf.h, -ox, 0, sw, buf.h);
+    ctx.save();
+    ctx.translate(-ox + sw * 2, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(sky, 0, oy, sw, buf.h, 0, 0, sw, buf.h);
+    ctx.restore();
+  } else {
+    px(ctx, 0, 0, buf.w, buf.h, level.sky[0]);
   }
 
   const horizon = Math.round(buf.h - 96 - camY * 0.08);
@@ -608,12 +549,17 @@ function drawBackground(ctx, level, cam, buf, t) {
   // into fog.
   const haze = (c, k) => mixHex(c, level.sky[1], k);
 
-  ctx.fillStyle = haze(level.hillBack, 0.5);
-  for (let x = 0; x < buf.w; x += 4) {
-    const wx = x + camX * 0.32;
-    const y = horizon - Math.round((Math.sin(wx * 0.0055) * 46 + Math.sin(wx * 0.0145) * 16) / 4) * 4;
-    ctx.fillRect(x, y, 4, buf.h - y);
+  const farShift = camX * 0.3;
+  const farFirst = Math.floor((farShift - 40) / 19);
+  for (let k = 0; k < buf.w / 19 + 6; k++) {
+    const idx = farFirst + k;
+    const sx = Math.round(idx * 19 - farShift);
+    const r = 10 + Math.floor(rnd(idx, 0, 61) * 12);
+    const dy = Math.floor(rnd(idx, 1, 67) * 10);
+    disc(ctx, sx, horizon + 14 + dy, r, haze(level.hillBack, 0.45));
   }
+  ctx.fillStyle = haze(level.hillBack, 0.45);
+  ctx.fillRect(0, horizon + 22, buf.w, buf.h - horizon - 22);
 
   // Near foliage: a solid band with bushy bumps along its top edge, the way
   // the reference background closes off the horizon.

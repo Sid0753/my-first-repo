@@ -17,7 +17,8 @@ const LEVELS = [
   {
     name: 'The Garden Path',
     hint: 'Arrow keys or A/D to walk, Space to jump. Reach the cake!',
-    sky: ['#5cb8ef', '#d8f0ff'],
+    skyImage: 'sky-day',
+    sky: ['#015cde', '#ccebee'],
     hill: '#5aa85f',
     hillBack: '#8bc98e',
     ground: '#9a6440',
@@ -48,7 +49,8 @@ const LEVELS = [
   {
     name: 'Balloon Balconies',
     hint: 'Spikes hurt. So does falling. Take the high road for more coins.',
-    sky: ['#f57fb4', '#ffe6f2'],
+    skyImage: 'sky-rose',
+    sky: ['#e75e95', '#f9e3f4'],
     hill: '#b76ec8',
     hillBack: '#dba9e6',
     ground: '#7a4b8f',
@@ -79,7 +81,8 @@ const LEVELS = [
   {
     name: 'The Candle Tower',
     hint: 'All the way up. The higher you fall from, the more it hurts.',
-    sky: ['#4a2f7a', '#ffb082'],
+    skyImage: 'sky-dusk',
+    sky: ['#312294', '#fda852'],
     hill: '#4a3580',
     hillBack: '#6a4fa3',
     ground: '#543d8d',
