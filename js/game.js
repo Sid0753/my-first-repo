@@ -57,6 +57,7 @@ const state = {
   coinsThisLevel: 0,
   coinsTotal: 0,
   unlocked: 1,
+  menuIndex: 0,
 };
 
 /* ---------------------------------------------------------------- progress */
@@ -131,6 +132,7 @@ function startLevel(index) {
 function setMode(mode) {
   state.mode = mode;
   state.modeTime = 0;
+  if (mode === 'dead') state.menuIndex = 0;   // always start on YES
 }
 
 function centerCamera(snap) {
@@ -364,6 +366,31 @@ function txt(str, x, y, size, color, align = 'center', shadow = false) {
   ctx.fillText(str, x, y);
 }
 
+/* The chunky arcade heading from the reference: a dark outline all round, a
+ * warm body, a shadow beneath, and a lighter upper half produced by clipping
+ * and redrawing the same glyphs. */
+function blockTitle(text, cx, y, size) {
+  ctx.font = `${size}px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const o = Math.max(2, Math.round(size * 0.1));
+  ctx.fillStyle = '#4d2208';
+  for (let dx = -o; dx <= o; dx += o) {
+    for (let dy = -o; dy <= o; dy += o) if (dx || dy) ctx.fillText(text, cx + dx, y + dy);
+  }
+  ctx.fillStyle = '#8a3d10';
+  ctx.fillText(text, cx, y + o);
+  ctx.fillStyle = '#e07a1e';
+  ctx.fillText(text, cx, y);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, y - size, VIEW.w, size * 0.95);
+  ctx.clip();
+  ctx.fillStyle = '#ffc247';
+  ctx.fillText(text, cx, y);
+  ctx.restore();
+}
+
 function textWidthArt(str, size) {
   ctx.font = `${size}px ${FONT}`;
   return Math.ceil(ctx.measureText(str).width / A2T);
@@ -447,8 +474,20 @@ function overlayPanels() {
   const m = state.mode;
   if (m === 'intro' && state.modeTime < 2.1) pixelPanel(bctx, 80, 112, BUF.w - 160, 92);
   else if (m === 'dead') {
-    px(bctx, 0, 0, BUF.w, BUF.h, 'rgba(20,10,24,0.62)');
-    pixelPanel(bctx, 68, 116, BUF.w - 136, 104);
+    px(bctx, 0, 0, BUF.w, BUF.h, 'rgba(20,10,24,0.66)');
+    // A soft band behind the wording, fading out at both ends, so the menu
+    // stays readable over whatever the level happens to have here without
+    // putting a panel box around it.
+    const veil = bctx.createLinearGradient(0, 52, 0, 252);
+    veil.addColorStop(0, 'rgba(16,9,26,0)');
+    veil.addColorStop(0.22, 'rgba(16,9,26,0.58)');
+    veil.addColorStop(0.78, 'rgba(16,9,26,0.58)');
+    veil.addColorStop(1, 'rgba(16,9,26,0)');
+    bctx.fillStyle = veil;
+    bctx.fillRect(0, 52, BUF.w, 200);
+    // her spent flowers, centred: the reason the run ended, stated plainly
+    for (let i = 0; i < MAX_HP; i++) drawFlowerIcon(bctx, 262 + i * 26, 76, false);
+    bctx.drawImage(SPR_ARROW, 290, 189 + state.menuIndex * 24);
   } else if (m === 'clear') {
     px(bctx, 0, 0, BUF.w, BUF.h, 'rgba(20,10,24,0.5)');
     pixelPanel(bctx, 68, 104, BUF.w - 136, 124);
@@ -467,9 +506,12 @@ function overlayText() {
     txt(L.name.toUpperCase(), VIEW.w / 2, 232, 16, '#fff');
     txt(L.hint.toUpperCase(), VIEW.w / 2, 268, 8, '#c9b6d8');
   } else if (m === 'dead') {
-    txt('OUT OF FLOWERS', VIEW.w / 2, 204, 20, '#ff9ec2');
-    txt('THE CAKE IS STILL WAITING', VIEW.w / 2, 244, 9, '#c9b6d8');
-    if (blink) txt('PRESS ENTER TO RETRY', VIEW.w / 2, 288, 11, '#ffd84d');
+    txt('COINS', VIEW.w - 40, 42, 10, '#fff', 'right', true);
+    txt(`${state.coinsThisLevel}`, VIEW.w - 40, 68, 16, '#ffd84d', 'right', true);
+    blockTitle('GAME OVER', VIEW.w / 2, 176, 44);
+    txt('TRY AGAIN ?', VIEW.w / 2, 240, 13, '#fff', 'center', true);
+    txt('YES', 468, 292, 15, state.menuIndex === 0 ? '#fff' : '#8d84a0', 'left', true);
+    txt('NO', 468, 328, 15, state.menuIndex === 1 ? '#fff' : '#8d84a0', 'left', true);
   } else if (m === 'clear') {
     txt('LEVEL COMPLETE', VIEW.w / 2, 190, 19, '#ffd84d');
     txt(`COINS ${state.coinsThisLevel}/${L.coins.length}`, VIEW.w / 2, 228, 11, '#fff');
@@ -577,13 +619,13 @@ function render() {
   }
   bctx.restore();
 
-  drawHUDIcons();
+  if (state.mode !== 'dead') drawHUDIcons();
   overlayPanels();
 
   blitBuffer();
   textSpace();
 
-  drawHUDText();
+  if (state.mode !== 'dead') drawHUDText();
   overlayText();
 
   if (Sound.muted) txt('MUTED (M)', VIEW.w - 16, VIEW.h - 14, 8, 'rgba(255,255,255,0.6)', 'right');
@@ -600,9 +642,14 @@ function handleMenuKeys() {
       if (Input.wasPressed(`Digit${i + 1}`)) { Sound.unlock(); state.coinsTotal = 0; startLevel(i); }
     }
   } else if (state.mode === 'dead') {
-    if (Input.wasPressed('Enter') || Input.wasPressed('KeyR')) {
-      state.coinsTotal -= state.coinsThisLevel;
-      startLevel(state.levelIndex);
+    if (Input.wasPressed('ArrowUp') || Input.wasPressed('KeyW')) state.menuIndex = 0;
+    if (Input.wasPressed('ArrowDown') || Input.wasPressed('KeyS')) state.menuIndex = 1;
+    const retry = () => { state.coinsTotal -= state.coinsThisLevel; startLevel(state.levelIndex); };
+    if (Input.wasPressed('KeyR')) retry();
+    else if (Input.wasPressed('Escape')) setMode('title');
+    else if (Input.wasPressed('Enter') || Input.wasPressed('Space')) {
+      if (state.menuIndex === 0) retry();
+      else setMode('title');
     }
   } else if (state.mode === 'clear') {
     if (Input.wasPressed('Enter') && state.modeTime > 0.4) startLevel(state.levelIndex + 1);

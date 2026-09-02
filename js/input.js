@@ -10,7 +10,7 @@ const Input = (() => {
   const JUMP = ['Space', 'ArrowUp', 'KeyW', 'KeyZ'];
 
   window.addEventListener('keydown', (e) => {
-    if ([...LEFT, ...RIGHT, ...JUMP, 'KeyR', 'KeyP', 'Enter', 'Escape'].includes(e.code)) e.preventDefault();
+    if ([...LEFT, ...RIGHT, ...JUMP, 'ArrowDown', 'KeyS', 'KeyR', 'KeyP', 'Enter', 'Escape'].includes(e.code)) e.preventDefault();
     if (e.repeat) return;
     held.add(e.code);
     pressed.add(e.code);

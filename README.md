@@ -34,6 +34,7 @@ node tools/build-single-file.js
 | --- | --- |
 | Move | `←` `→` or `A` `D` |
 | Jump | `Space`, `↑`, `W` or `Z` |
+| Choose on the game-over menu | `↑` `↓`, then `Enter` |
 | Restart the level | `R` |
 | Back to the title screen | `Esc` |
 | Mute | `M` |

@@ -345,6 +345,15 @@ function drawCheckpoint(ctx, c, t) {
   ctx.drawImage(c.active ? SPR_BALLOON : SPR_BALLOON_OFF, x - Math.floor(SPR_BALLOON.width / 2), topY);
 }
 
+/* The gold selector arrow on the game-over menu. */
+const SPR_ARROW = bake(10, 11, (g) => {
+  for (let r = 0; r < 11; r++) {
+    const w = Math.round(10 - Math.abs(r - 5) * 2);
+    if (w > 0) px(g, 0, r, w, 1, PAL.T);
+  }
+  px(g, 0, 4, 4, 3, '#fff0b0');
+});
+
 function drawFlowerIcon(ctx, x, y, filled) {
   ctx.drawImage(filled ? SPR_FLOWER : SPR_FLOWER_OFF, x, y);
 }
