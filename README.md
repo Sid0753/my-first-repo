@@ -78,7 +78,10 @@ zoom the window allows, which is why the game is letterboxed rather than stretch
 
 Nandini herself is a spritesheet in `assets/nandini.png` — idle, blink, wave,
 kiss, walk, run, jump, fall, hurt and cheer frames, all cut to one scale and
-aligned on the feet so she never shifts as the animation plays.
+aligned on the feet so she never shifts as the animation plays. The idle,
+blink, wave, hurt and cheer frames come from a supplied set of clean
+transparent-PNG art; the walk/run/jump/fall cycle is kept from an earlier,
+separately-confirmed sheet.
 
 Left standing, she breathes, blinks every few seconds, and after a longer pause
 waves or blows a kiss, so the screen never looks frozen. The timer resets the
