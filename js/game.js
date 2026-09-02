@@ -53,8 +53,8 @@ const state = {
   time: 0,
   modeTime: 0,
   particles: [],
-  giftsThisLevel: 0,
-  giftsTotal: 0,
+  coinsThisLevel: 0,
+  coinsTotal: 0,
   unlocked: 1,
 };
 
@@ -104,7 +104,7 @@ function spawnParticles(x, y, count, opts) {
 function startLevel(index) {
   state.levelIndex = index;
   state.level = buildLevel(LEVELS[index]);
-  state.giftsThisLevel = 0;
+  state.coinsThisLevel = 0;
   state.particles.length = 0;
   const L = state.level;
   state.player = {
@@ -280,14 +280,14 @@ function updatePlay(dt) {
     if (overlaps(r, s)) { hurt(1, s.x + s.w / 2); break; }
   }
 
-  for (const g of L.gifts) {
-    if (g.taken) continue;
-    if (overlaps(r, { x: g.x - 13, y: g.y - 13, w: 26, h: 26 })) {
-      g.taken = true;
-      state.giftsThisLevel++;
-      state.giftsTotal++;
-      Sound.gift();
-      spawnParticles(g.x, g.y, 10, { color: ['#ffd84d', '#6ad1c8', '#ff6b9d'], speed: 170, life: 0.55, size: 3, gravity: 300 });
+  for (const c of L.coins) {
+    if (c.taken) continue;
+    if (overlaps(r, { x: c.x - 14, y: c.y - 14, w: 28, h: 28 })) {
+      c.taken = true;
+      state.coinsThisLevel++;
+      state.coinsTotal++;
+      Sound.coin();
+      spawnParticles(c.x, c.y, 10, { color: ['#ffd84d', '#ffef9e', '#ffffff'], speed: 170, life: 0.55, size: 3, gravity: 300 });
     }
   }
 
@@ -349,11 +349,15 @@ function drawParticles() {
 
 /* Text goes onto the full-size canvas rather than the pixel buffer, so it
  * stays readable; everything else is pixels. */
-function txt(str, x, y, size, color, align = 'center') {
-  ctx.fillStyle = color;
+function txt(str, x, y, size, color, align = 'center', shadow = false) {
   ctx.font = `${size}px ${FONT}`;
   ctx.textAlign = align;
   ctx.textBaseline = 'middle';
+  if (shadow) {
+    ctx.fillStyle = 'rgba(20,12,30,0.85)';
+    ctx.fillText(str, x + size * 0.16, y + size * 0.16);
+  }
+  ctx.fillStyle = color;
   ctx.fillText(str, x, y);
 }
 
@@ -362,60 +366,73 @@ function textWidthArt(str, size) {
   return Math.ceil(ctx.measureText(str).width / A2T);
 }
 
+/* The reference HUD has no panels: the flowers sit straight on the sky, so the
+ * text carries its own drop shadow to stay readable over anything. */
 function drawHUDIcons() {
   const p = state.player;
-  pixelPanel(bctx, 6, 6, 5 * 16 + 12, 25);
-  for (let i = 0; i < MAX_HP; i++) drawFlowerIcon(bctx, 12 + i * 16, 12, i < p.hp);
-
-  pixelPanel(bctx, 6, 37, 74, 24);
-  drawGiftIcon(bctx, 11, 41);
-
-  const label = `L${state.levelIndex + 1} ${state.level.name.toUpperCase()}`;
-  const w = textWidthArt(label, 9) + 20;
-  pixelPanel(bctx, BUF.w - 6 - w, 6, w, 25);
-  state.hudLabel = { label, w };
+  for (let i = 0; i < MAX_HP; i++) drawFlowerIcon(bctx, 8 + i * 19, 8, i < p.hp);
+  drawCoinIcon(bctx, 9, 33);
 }
 
 function drawHUDText() {
-  txt(`${state.giftsThisLevel}/${state.level.gifts.length}`, 32 * A2T, 49 * A2T, 9, '#fff', 'left');
-  const h = state.hudLabel;
-  if (h) txt(h.label, (BUF.w - 16) * A2T, 18 * A2T, 9, '#ffd84d', 'right');
+  txt(`${state.coinsThisLevel}/${state.level.coins.length}`, 30 * A2T, 42 * A2T, 10, '#fff', 'left', true);
+  txt(`L${state.levelIndex + 1}  ${state.level.name.toUpperCase()}`,
+      (BUF.w - 10) * A2T, 16 * A2T, 10, '#ffd84d', 'right', true);
 }
 
 /* ------------------------------------------------------------- title screen */
 
 function titleScene() {
-  for (let i = 0; i < 11; i++) {
-    px(bctx, 0, Math.floor((i * BUF.h) / 11), BUF.w, Math.ceil(BUF.h / 11) + 1,
-       mixHex('#ff8fb8', '#ffe6f0', i / 10));
-  }
-  for (let i = 0; i < 11; i++) {
-    const bx = 18 + i * 58;
-    const by = 44 + ((i * 37) % 92) + (Math.floor(state.time * 2 + i) % 2) * 2;
-    bctx.drawImage(SPR_BALLOON, bx, by);
-  }
+  // Sunset sky over green ground, as in the design reference.
+  if (!state.titleLevel) state.titleLevel = buildLevel({ ...LEVELS[0], sky: LEVELS[2].sky, title: true });
+  drawBackground(bctx, state.titleLevel, { x: 400, y: 240 }, BUF, state.time);
 
-  bctx.save();
-  bctx.scale(2, 2);
-  drawNandini(bctx, 125, 128, 1, {
+  // a strip of ground for her to stand on
+  const art = levelArt(state.titleLevel);
+  for (let tx = 0; tx < BUF.w / ATILE + 1; tx++) {
+    bctx.drawImage(art.top[tx % art.top.length], tx * ATILE, 196);
+  }
+  bctx.drawImage(art.tree, 30, 196 - art.tree.height + 6);
+  bctx.drawImage(art.bush, 118, 196 - art.bush.height + 5);
+
+  drawNandini(bctx, 214, 200, 1, {
     runPhase: state.time * 6, grounded: true, rising: false, hurtFlash: false,
     speed: 0, time: state.time, victory: false,
   });
-  drawCake(bctx, 196, 128, state.time);
-  bctx.restore();
-  for (let i = 0; i < MAX_HP; i++) drawFlowerIcon(bctx, 252 + i * 28, 268, true);
+  drawCake(bctx, 430, 200, state.time);
+  for (let i = 0; i < MAX_HP; i++) drawFlowerIcon(bctx, 8 + i * 19, 8, true);
 
-  pixelPanel(bctx, 52, 288, BUF.w - 104, 62);
+  pixelPanel(bctx, 26, 240, BUF.w - 52, 112, 'rgba(22,16,42,0.92)', '#8f7ad4');
+
+  // legend row: what each thing in the game is
+  const y = 296;
+  drawNandini(bctx, 92, y + 24, 1, {
+    runPhase: 0, grounded: true, rising: false, hurtFlash: false,
+    speed: 0, time: state.time, victory: false,
+  });
+  drawNandini(bctx, 196, y + 24, 1, {
+    runPhase: 0, grounded: false, rising: true, hurtFlash: false,
+    speed: 200, time: state.time, victory: false,
+  });
+  const coin = COIN_FRAMES[Math.floor(state.time * 7) % COIN_FRAMES.length];
+  bctx.drawImage(coin, 300 - coin.width / 2, y + 4);
+  drawSpikes(bctx, { tx: 364, ty: y - 16, dir: 'up' });
+  drawSpikes(bctx, { tx: 404, ty: y - 16, dir: 'up' });
+  bctx.drawImage(SPR_CAKE, 0, 0, SPR_CAKE.width, SPR_CAKE.height,
+                 500 - 17, y - 10, Math.round(SPR_CAKE.width * 0.7), Math.round(SPR_CAKE.height * 0.7));
 }
 
 function titleText() {
-  txt("NANDINI'S", VIEW.w / 2, 46, 30, '#4a1f3a');
-  txt('BIRTHDAY RUN', VIEW.w / 2, 84, 30, '#c0246b');
-  txt('5 FLOWERS  3 LEVELS  1 CAKE', VIEW.w / 2, 116, 10, '#7a3a5e');
-  txt('ARROWS OR A/D TO MOVE   SPACE TO JUMP', VIEW.w / 2, 462, 10, '#fff');
-  txt('SPIKES AND FALLS COST A FLOWER', VIEW.w / 2, 486, 9, '#ffb8d2');
-  if (Math.floor(state.time * 2) % 2) txt('PRESS ENTER TO START', VIEW.w / 2, 512, 11, '#ffd84d');
-  if (state.unlocked > 1) txt(`PRESS 1-${state.unlocked} FOR A LEVEL`, VIEW.w / 2, 532, 8, '#7a3a5e');
+  txt("NANDINI'S", VIEW.w / 2, 74, 26, '#fff', 'center', true);
+  txt('BIRTHDAY RUN', VIEW.w / 2, 110, 26, '#ffd84d', 'center', true);
+  txt('5 FLOWERS   3 LEVELS   1 CAKE', VIEW.w / 2, 142, 9, '#ffd8ea', 'center', true);
+  if (Math.floor(state.time * 2) % 2) txt('PRESS ENTER TO START', VIEW.w / 2, 336, 12, '#ffd84d', 'center', true);
+  if (state.unlocked > 1) txt(`1-${state.unlocked} PICKS A LEVEL`, VIEW.w / 2, 356, 8, '#ffe9b0', 'center', true);
+
+  txt('REACH THE BIRTHDAY CAKE!', VIEW.w / 2, 396, 17, '#fff');
+  const labels = ['MOVE', 'JUMP', 'COLLECT', 'AVOID SPIKES', 'REACH GOAL'];
+  const xs = [138, 294, 450, 606, 750];
+  labels.forEach((l, i) => txt(l, xs[i], 508, 9, '#d9cbf5'));
 }
 
 /* ----------------------------------------------------------------- overlays */
@@ -449,14 +466,14 @@ function overlayText() {
     if (blink) txt('PRESS ENTER TO RETRY', VIEW.w / 2, 288, 11, '#ffd84d');
   } else if (m === 'clear') {
     txt('LEVEL COMPLETE', VIEW.w / 2, 190, 19, '#ffd84d');
-    txt(`GIFTS ${state.giftsThisLevel}/${L.gifts.length}`, VIEW.w / 2, 228, 11, '#fff');
+    txt(`COINS ${state.coinsThisLevel}/${L.coins.length}`, VIEW.w / 2, 228, 11, '#fff');
     txt(`FLOWERS ${state.player.hp}/${MAX_HP}`, VIEW.w / 2, 254, 11, '#fff');
     if (blink) txt('PRESS ENTER', VIEW.w / 2, 296, 11, '#ffd84d');
   } else if (m === 'win' && state.modeTime > 0.6) {
     txt('HAPPY BIRTHDAY', VIEW.w / 2, 158, 24, '#fff');
     txt('NANDINI!', VIEW.w / 2, 204, 34, '#ffd84d');
     txt('SHE MADE IT TO THE CAKE', VIEW.w / 2, 250, 10, '#ffb8d2');
-    txt(`GIFTS ${state.giftsTotal}   FLOWERS ${state.player.hp}/${MAX_HP}`, VIEW.w / 2, 286, 10, '#fff');
+    txt(`COINS ${state.coinsTotal}   FLOWERS ${state.player.hp}/${MAX_HP}`, VIEW.w / 2, 286, 10, '#fff');
     if (blink) txt('PRESS ENTER TO PLAY AGAIN', VIEW.w / 2, 330, 10, '#ffd84d');
   }
 }
@@ -525,7 +542,7 @@ function render() {
   drawTerrain(bctx, L, state.cam, BUF);
   for (const s of L.spikes) drawSpikes(bctx, s);
   for (const c of L.checkpoints) drawCheckpoint(bctx, c, state.time);
-  for (const g of L.gifts) if (!g.taken) drawGift(bctx, g, state.time);
+  for (const c of L.coins) if (!c.taken) drawCoin(bctx, c, state.time);
   if (L.cake) drawCake(bctx, L.cake.x, L.cake.y, state.time);
   drawParticles();
 
@@ -562,13 +579,13 @@ function handleMenuKeys() {
   if (Input.wasPressed('KeyM')) Sound.toggleMute();
 
   if (state.mode === 'title') {
-    if (Input.wasPressed('Enter')) { Sound.unlock(); state.giftsTotal = 0; startLevel(0); }
+    if (Input.wasPressed('Enter')) { Sound.unlock(); state.coinsTotal = 0; startLevel(0); }
     for (let i = 0; i < state.unlocked && i < LEVELS.length; i++) {
-      if (Input.wasPressed(`Digit${i + 1}`)) { Sound.unlock(); state.giftsTotal = 0; startLevel(i); }
+      if (Input.wasPressed(`Digit${i + 1}`)) { Sound.unlock(); state.coinsTotal = 0; startLevel(i); }
     }
   } else if (state.mode === 'dead') {
     if (Input.wasPressed('Enter') || Input.wasPressed('KeyR')) {
-      state.giftsTotal -= state.giftsThisLevel;
+      state.coinsTotal -= state.coinsThisLevel;
       startLevel(state.levelIndex);
     }
   } else if (state.mode === 'clear') {
@@ -576,7 +593,7 @@ function handleMenuKeys() {
   } else if (state.mode === 'win') {
     if (Input.wasPressed('Enter') && state.modeTime > 1.2) setMode('title');
   } else if (state.mode === 'play' || state.mode === 'intro') {
-    if (Input.wasPressed('KeyR')) { state.giftsTotal -= state.giftsThisLevel; startLevel(state.levelIndex); }
+    if (Input.wasPressed('KeyR')) { state.coinsTotal -= state.coinsThisLevel; startLevel(state.levelIndex); }
     if (Input.wasPressed('Escape')) setMode('title');
   }
 }
@@ -630,8 +647,8 @@ Input.bindTouch(document.getElementById('btn-right'), 'right');
 Input.bindTouch(document.getElementById('btn-jump'), 'jump');
 canvas.addEventListener('pointerdown', () => {
   Sound.unlock();
-  if (state.mode === 'title') { state.giftsTotal = 0; startLevel(0); }
-  else if (state.mode === 'dead') { state.giftsTotal -= state.giftsThisLevel; startLevel(state.levelIndex); }
+  if (state.mode === 'title') { state.coinsTotal = 0; startLevel(0); }
+  else if (state.mode === 'dead') { state.coinsTotal -= state.coinsThisLevel; startLevel(state.levelIndex); }
   else if (state.mode === 'clear' && state.modeTime > 0.4) startLevel(state.levelIndex + 1);
   else if (state.mode === 'win' && state.modeTime > 1.2) setMode('title');
 });

@@ -6,6 +6,9 @@ Nandini has **five flowers** — that's her health. Spikes cost a flower, and so
 falling (out of the world, or from a very long way up). Run, jump, and climb your way
 through three levels to reach the birthday cake at the end of each one.
 
+It's drawn as pixel art: chunky dithered skies, outlined platforms with grass caps,
+and a hand-cut character spritesheet.
+
 ## Play it
 
 It's plain HTML, CSS and JavaScript with no build step and no dependencies.
@@ -34,7 +37,7 @@ On a phone or tablet, on-screen buttons appear automatically.
 3. **The Candle Tower** — a climb. Falling off is expensive.
 
 Pink balloons are checkpoints: touch one and a fall sends you back there instead of to
-the start. The wrapped gifts are optional — they're just there to be found.
+the start. The coins are optional — they're just there to be found.
 
 ## How it's put together
 
@@ -62,7 +65,8 @@ never shifts as the animation plays.
 
 Everything else is drawn in code: the terrain tiles (baked once per level into a
 few variants, with notched grass caps, grass dripping into the dirt and speckled
-soil), the dithered sky, the clouds, the horizon bushes, the cake, the gifts, the
+soil), trees and bushes scattered deterministically, the ordered-dither sky, the
+clouds, the horizon tree line, the cake and its goal flag, the spinning coins, the
 balloons, the spikes and the HUD. The sound is synthesised with WebAudio. So apart
 from the one spritesheet there is nothing to lose track of.
 
@@ -73,7 +77,7 @@ Levels live in `js/levels.js` as grids of characters, one character per 40×40 t
 ```
 .  empty            #  solid ground        ^  floor spikes
 P  Nandini's start  c  the cake (goal)     v  ceiling spikes
-f  checkpoint       *  gift
+f  checkpoint       *  coin
 ```
 
 Edit the art, reload the page, and the change is live. Keep every row in a level the

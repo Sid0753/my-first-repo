@@ -16,7 +16,6 @@ const aw = (v) => Math.round(v * ART);
 const PAL = {
   T: '#ffd84d',   // gold
   W: '#ffffff',
-  G: '#4ec9c1',   // gift teal
   g: '#6b7285',   // spike body
   l: '#aab2c4',   // spike lit edge
   n: '#3f4454',   // spike shaded edge
@@ -30,6 +29,11 @@ const PAL = {
   P: '#f2f2f7',   // plate
   p: '#c9c9d6',
   b: '#ff5f8d',   // balloon
+  X: '#6b4028',   // cake chocolate
+  x: '#8a5738',   // cake chocolate light
+  N: '#ffd24d',   // coin
+  m: '#ffef9e',   // coin highlight
+  M: '#c98f18',   // coin shade
   w: '#ffd0de',   // balloon highlight
   o: '#241a2b',   // outline
 };
@@ -150,21 +154,30 @@ const SPR_FLOWER = bake(13, 13, (g) => {
   disc(g, 6, 6, 2, PAL.T);
 });
 
+/* A spent flower stays a flower, just drained of colour — a dark blob reads as
+ * damage to the HUD rather than to Nandini. */
 const SPR_FLOWER_OFF = bake(13, 13, (g) => {
-  for (const [x, y] of [[6, 2], [10, 5], [8, 10], [4, 10], [2, 5]]) disc(g, x, y, 2, '#5b4a68');
-  disc(g, 6, 6, 2, '#3f3348');
+  for (const [x, y] of [[6, 2], [10, 5], [8, 10], [4, 10], [2, 5]]) disc(g, x, y, 2, '#b9b2c6');
+  disc(g, 6, 6, 2, '#8e869c');
 });
 
-const SPR_GIFT = bake(16, 16, (g) => {
-  px(g, 1, 5, 14, 11, PAL.G);            // box
-  px(g, 1, 5, 14, 1, '#7ee0d9');         // lid highlight
-  px(g, 1, 15, 14, 1, '#2f9e97');
-  px(g, 6, 5, 4, 11, PAL.T);             // vertical ribbon
-  px(g, 1, 9, 14, 3, PAL.T);             // horizontal ribbon
-  disc(g, 4, 3, 2, PAL.T);               // bow
-  disc(g, 11, 3, 2, PAL.T);
-  px(g, 6, 2, 4, 3, '#ffe98a');
-});
+/* Spinning coin: four frames, the face narrowing as it turns edge-on. */
+const COIN_FRAMES = [8, 6, 3, 6].map((half) => bake(18, 18, (g) => {
+  for (let y = -8; y <= 8; y++) {
+    const w = Math.round(half * Math.sqrt(1 - (y * y) / 81));
+    if (w <= 0) continue;
+    px(g, 9 - w, 9 + y, w * 2, 1, PAL.N);
+  }
+  if (half >= 6) {
+    for (let y = -5; y <= 5; y++) {
+      const w = Math.round((half - 3) * Math.sqrt(1 - (y * y) / 36));
+      if (w <= 0) continue;
+      px(g, 9 - w, 9 + y, w * 2, 1, PAL.m);
+    }
+    px(g, 8, 5, 2, 8, PAL.M);
+  }
+}));
+const SPR_COIN = COIN_FRAMES[0];
 
 function balloon(color, highlight, string) {
   return bake(13, 20, (g) => {
@@ -179,55 +192,78 @@ function balloon(color, highlight, string) {
 const SPR_BALLOON = balloon(PAL.b, PAL.w, 'rgba(255,255,255,0.75)');
 const SPR_BALLOON_OFF = balloon('#8d94a6', '#c3c9d6', 'rgba(200,200,210,0.5)');
 
-/* Cake: three tiers, scalloped icing, a candle on top. 40x48, base at bottom. */
-const SPR_CAKE = bake(40, 48, (g) => {
-  const tiers = [
-    { w: 36, y: 34 },
-    { w: 28, y: 22 },
-    { w: 18, y: 12 },
-  ];
-  px(g, 1, 45, 38, 3, PAL.P);            // plate
-  px(g, 3, 47, 34, 1, PAL.p);
-  for (const t of tiers) {
-    const x = 20 - t.w / 2;
-    px(g, x, t.y, t.w, 12, PAL.A);       // sponge
-    px(g, x, t.y + 9, t.w, 3, PAL.a);
-    px(g, x, t.y, t.w, 4, PAL.I);        // icing band
-    for (let d = 0; d + 4 <= t.w; d += 4) disc(g, x + d + 2, t.y + 4, 2, PAL.I);
-    px(g, x, t.y, t.w, 1, '#ffb8cf');
-    px(g, x, t.y + 6, t.w, 1, PAL.i);
-    px(g, x, t.y + 7, t.w, 1, '#c9a878');
+/* Cake: chocolate tiers under pink icing with white drips, and three lit
+ * candles — matching the goal cake in the design reference. */
+function icingDrips(g, x, w, y, color) {
+  for (let d = 0; d + 6 <= w; d += 6) {
+    const h = 3 + ((d / 6) % 3);
+    px(g, x + d + 1, y, 4, h, color);
+    px(g, x + d + 2, y + h, 2, 1, color);
   }
-  // sprinkles
-  for (const [sx, sy] of [[10, 30], [16, 40], [26, 39], [30, 30], [14, 19], [24, 20]]) {
-    px(g, sx, sy, 2, 1, PAL.T);
+}
+
+const SPR_CAKE = bake(48, 58, (g) => {
+  px(g, 2, 54, 44, 4, PAL.P);                  // plate
+  px(g, 6, 52, 36, 2, PAL.p);
+
+  px(g, 5, 36, 38, 16, PAL.X);                 // lower tier
+  px(g, 5, 36, 38, 3, PAL.x);
+  px(g, 4, 28, 40, 9, PAL.I);                  // lower icing
+  px(g, 4, 28, 40, 2, '#ffb8cf');
+  px(g, 4, 35, 40, 2, PAL.i);
+  icingDrips(g, 4, 40, 37, PAL.W);
+
+  px(g, 13, 15, 22, 13, PAL.X);                // upper tier
+  px(g, 13, 15, 22, 3, PAL.x);
+  px(g, 12, 8, 24, 8, PAL.I);                  // upper icing
+  px(g, 12, 8, 24, 2, '#ffb8cf');
+  icingDrips(g, 12, 24, 15, PAL.W);
+
+  for (let i = 0; i < 3; i++) {                // candles
+    const cx = 16 + i * 8;
+    px(g, cx, 0, 3, 9, PAL.W);
+    px(g, cx, 3, 3, 2, PAL.b);
   }
-  px(g, 18, 2, 4, 11, PAL.C);            // candle
-  px(g, 18, 6, 4, 2, PAL.W);
+});
+
+/* A pennant at the goal, so the finish reads at a glance. */
+const SPR_FLAG = bake(18, 44, (g) => {
+  px(g, 2, 0, 3, 44, '#d8d8e4');
+  px(g, 2, 0, 1, 44, '#ffffff');
+  for (let r = 0; r < 14; r++) {
+    px(g, 5, 3 + r, 13 - Math.abs(r - 7), 1, r < 7 ? '#ff6ea6' : '#e8467f');
+  }
 });
 
 function drawCake(ctx, x, baseY, t) {
   const bob = Math.floor(t * 2) % 2;
   const bx = aw(x) - Math.floor(SPR_CAKE.width / 2);
   const by = aw(baseY) - SPR_CAKE.height + 1 + bob;
+
+  ctx.drawImage(SPR_FLAG, bx + SPR_CAKE.width + 2, aw(baseY) - SPR_FLAG.height + 1);
   ctx.drawImage(SPR_CAKE, bx, by);
-  // flame, animated so the candle never looks static
-  const flick = Math.floor(t * 9) % 3;
-  disc(ctx, bx + 20, by - 1 + (flick === 1 ? 1 : 0), 2, PAL.F);
-  px(ctx, bx + 19 + (flick === 2 ? 1 : 0), by - 5, 2, 4, PAL.F);
-  px(ctx, bx + 20, by - 3, 1, 3, PAL.f);
-  // twinkles instead of a soft glow, which would blur the pixels
+
+  // three flames, flickering out of step with each other
+  for (let i = 0; i < 3; i++) {
+    const cx = bx + 17 + i * 8;
+    const f = Math.floor(t * 8 + i * 1.7) % 3;
+    px(ctx, cx - 1, by - 5 + (f === 1 ? 1 : 0), 3, 5, PAL.F);
+    px(ctx, cx, by - 6 + (f === 1 ? 1 : 0), 1, 3, PAL.f);
+    px(ctx, cx - 1 + (f === 2 ? 1 : 0), by - 7, 1, 1, PAL.f);
+  }
+
   ctx.fillStyle = 'rgba(255,222,140,0.85)';
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     if ((Math.floor(t * 3) + i) % 4 === 0) continue;
-    const a = (i / 4) * Math.PI * 2 + t * 0.7;
-    ctx.fillRect(bx + 20 + Math.round(Math.cos(a) * 15), by + 2 + Math.round(Math.sin(a) * 12), 1, 1);
+    const a = (i / 5) * Math.PI * 2 + t * 0.7;
+    ctx.fillRect(bx + 24 + Math.round(Math.cos(a) * 22), by + 6 + Math.round(Math.sin(a) * 16), 2, 2);
   }
 }
 
-function drawGift(ctx, g, t) {
-  const bob = Math.floor(t * 3 + g.seed) % 2;
-  ctx.drawImage(SPR_GIFT, aw(g.x) - Math.floor(SPR_GIFT.width / 2), aw(g.y) - Math.floor(SPR_GIFT.height / 2) + bob);
+function drawCoin(ctx, c, t) {
+  const bob = Math.floor(t * 3 + c.seed) % 2;
+  const spr = COIN_FRAMES[Math.floor(t * 7 + c.seed * 2) % COIN_FRAMES.length];
+  ctx.drawImage(spr, aw(c.x) - Math.floor(spr.width / 2), aw(c.y) - Math.floor(spr.height / 2) + bob);
 }
 
 function drawCheckpoint(ctx, c, t) {
@@ -244,8 +280,8 @@ function drawFlowerIcon(ctx, x, y, filled) {
   ctx.drawImage(filled ? SPR_FLOWER : SPR_FLOWER_OFF, x, y);
 }
 
-function drawGiftIcon(ctx, x, y) {
-  ctx.drawImage(SPR_GIFT, x, y);
+function drawCoinIcon(ctx, x, y) {
+  ctx.drawImage(SPR_COIN, x, y);
 }
 
 /* ------------------------------------------------------------------- spikes */
@@ -262,7 +298,7 @@ function drawSpikes(ctx, s) {
       const x = cx - Math.floor(w / 2);
       const y = s.dir === 'up' ? y0 + ATILE - 1 - r : y0 + r;
       px(ctx, x - 1, y, w + 2, 1, PAL.o);          // outline
-      px(ctx, x, y, w, 1, PAL.g);
+      px(ctx, x, y, w, 1, r < H * 0.35 ? PAL.l : PAL.g);
       px(ctx, x, y, 1, 1, PAL.l);
       if (w > 3) px(ctx, x + w - 1, y, 1, 1, PAL.n);
     }
@@ -356,6 +392,35 @@ function bakeDaisy(level) {
   });
 }
 
+
+function bakeTree(level) {
+  return bake(46, 54, (g) => {
+    px(g, 20, 34, 7, 20, '#6b4028');
+    px(g, 20, 34, 2, 20, '#8a5738');
+    px(g, 17, 50, 13, 4, '#6b4028');
+    disc(g, 14, 24, 11, level.grassDark);
+    disc(g, 32, 25, 10, level.grassDark);
+    disc(g, 23, 15, 14, level.grassDark);
+    disc(g, 20, 12, 9, level.grass);
+    disc(g, 31, 19, 6, level.grass);
+    disc(g, 12, 21, 5, level.grass);
+  });
+}
+
+function bakePine(level) {
+  return bake(32, 50, (g) => {
+    px(g, 13, 38, 6, 12, '#6b4028');
+    for (let i = 0; i < 3; i++) {
+      const top = 4 + i * 11;
+      const halfMax = 7 + i * 4;
+      for (let r = 0; r < 14; r++) {
+        const hw = 2 + Math.round((r / 13) * halfMax);
+        px(g, 16 - hw, top + r, hw * 2, 1, r < 5 ? level.grass : level.grassDark);
+      }
+    }
+  });
+}
+
 function levelArt(level) {
   if (level._art) return level._art;
   const a = {
@@ -364,6 +429,8 @@ function levelArt(level) {
     tuft: bakeTuft(level),
     bush: bakeBush(level),
     daisy: bakeDaisy(level),
+    tree: bakeTree(level),
+    pine: bakePine(level),
   };
   level._art = a;
   return a;
@@ -393,12 +460,18 @@ function drawTerrain(ctx, level, cam, buf) {
       if (!solid(tx, ty + 1)) px(ctx, x, y + ATILE - 2, ATILE, 2, level.outline);
       if (!open && !solid(tx, ty - 1)) px(ctx, x, y, ATILE, 2, level.outline);
 
-      // scenery, only where the tile above is genuinely empty
+      // Scenery, only where the tile above is genuinely empty. Trees need a
+      // couple of clear tiles overhead so a canopy never swallows a platform.
       if (open && ty > 0 && rows[ty - 1][tx] === '.') {
         const r = rnd(tx, ty, 31);
-        if (r > 0.86) ctx.drawImage(art.bush, x + 6, y - art.bush.height + 5);
-        else if (r > 0.66) ctx.drawImage(art.tuft, x + 4 + Math.floor(rnd(tx, ty, 37) * 18), y - art.tuft.height + 5);
-        else if (r > 0.58) ctx.drawImage(art.daisy, x + 8 + Math.floor(rnd(tx, ty, 41) * 16), y - art.daisy.height + 5);
+        const roomy = ty > 1 &&
+          rows[ty - 1][tx - 1] === '.' && rows[ty - 1][tx + 1] === '.' &&
+          rows[ty - 2][tx] === '.' && rows[ty - 2][tx - 1] === '.' && rows[ty - 2][tx + 1] === '.';
+        if (r > 0.94 && roomy) ctx.drawImage(art.tree, x - 3, y - art.tree.height + 6);
+        else if (r > 0.90 && roomy) ctx.drawImage(art.pine, x + 4, y - art.pine.height + 6);
+        else if (r > 0.82) ctx.drawImage(art.bush, x + 6, y - art.bush.height + 5);
+        else if (r > 0.62) ctx.drawImage(art.tuft, x + 4 + Math.floor(rnd(tx, ty, 37) * 18), y - art.tuft.height + 5);
+        else if (r > 0.54) ctx.drawImage(art.daisy, x + 8 + Math.floor(rnd(tx, ty, 41) * 16), y - art.daisy.height + 5);
       }
     }
   }
@@ -426,7 +499,7 @@ function bakeSky(level, w, h) {
 
   const BANDS = 7;
   const bandH = h / BANDS;
-  const DITH = 12;
+  const DITH = Math.round(bandH * 0.75);   // wide, so the blend is the feature
   const cols = [];
   for (let i = 0; i < BANDS; i++) cols.push(rgbOf(mixHex(level.sky[0], level.sky[1], i / (BANDS - 1))));
   const dots = cols.map((col) => col.map((v) => Math.min(255, Math.round(v + (255 - v) * 0.18))));
@@ -436,9 +509,12 @@ function bakeSky(level, w, h) {
     const toNext = (bi + 1) * bandH - y;
     for (let x = 0; x < w; x++) {
       let ci = bi;
-      if (bi < BANDS - 1 && toNext <= DITH && BAYER[y & 3][x & 3] < (1 - toNext / DITH) * 16) ci = bi + 1;
+      // 2x2 dither cells: the reference art blends in chunky blocks, not
+      // single pixels
+      if (bi < BANDS - 1 && toNext <= DITH &&
+          BAYER[(y >> 1) & 3][(x >> 1) & 3] < (1 - toNext / DITH) * 16) ci = bi + 1;
       let col = cols[ci];
-      if (x % 4 === 1 && y % 4 === 1 && y < h * 0.8) col = dots[ci];
+      if (((x >> 1) & 3) === 1 && ((y >> 1) & 3) === 1 && y < h * 0.85) col = dots[ci];
       const o = (y * w + x) * 4;
       d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = 255;
     }
@@ -513,11 +589,14 @@ function drawBackground(ctx, level, cam, buf, t) {
   const camY = cam.y * ART;
 
   const clouds = levelClouds(level);
-  for (let i = 0; i < 12; i++) {
+  const cloudCount = level.title ? 5 : 12;
+  for (let i = 0; i < cloudCount; i++) {
     const spr = clouds[i % clouds.length];
     const span = buf.w + 700;
     const bx = Math.round(((i * 431) % span) - ((camX * 0.22) % span));
-    const by = Math.round(18 + ((i * 97) % 120) - camY * 0.1);
+    const by = level.title
+      ? 6 + ((i * 29) % 30)                       // kept above the title text
+      : Math.round(18 + ((i * 97) % 120) - camY * 0.1);
     if (bx < -spr.width || bx > buf.w) continue;
     ctx.drawImage(spr, bx, by);
   }
@@ -561,6 +640,8 @@ function drawBackground(ctx, level, cam, buf, t) {
   ctx.drawImage(SCRIM, 0, scrimTop);
   const solidFrom = scrimTop + SCRIM.height;
   if (solidFrom < buf.h) px(ctx, 0, solidFrom, buf.w, buf.h - solidFrom, 'rgba(14,8,26,0.7)');
+
+  if (level.title) return;
 
   const buntY = Math.round(58 - camY * 0.16);
   const flags = ['#ff6b9d', '#ffd84d', '#6ad1c8', '#b48cff'];

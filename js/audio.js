@@ -57,7 +57,7 @@ const Sound = (() => {
     jump() { slide(420, 720, 0.13, 'square', 0.045); },
     land() { slide(180, 90, 0.08, 'sine', 0.05); },
     hurt() { slide(330, 90, 0.32, 'sawtooth', 0.07); },
-    gift() { tone(N.E5, 0.09, 'triangle', 0.06); tone(N.G5, 0.12, 'triangle', 0.06, 0.08); },
+    coin() { tone(N.E5, 0.09, 'triangle', 0.06); tone(N.G5, 0.12, 'triangle', 0.06, 0.08); },
     checkpoint() { tone(N.C5, 0.1, 'triangle', 0.06); tone(N.E5, 0.1, 'triangle', 0.06, 0.09); tone(N.G5, 0.18, 'triangle', 0.06, 0.18); },
     fail() { tone(N.G4, 0.16, 'square', 0.06); tone(N.E4, 0.16, 'square', 0.06, 0.15); tone(N.C4, 0.4, 'square', 0.06, 0.3); },
     levelClear() { [N.C5, N.E5, N.G5, N.C5 * 2].forEach((f, i) => tone(f, 0.2, 'triangle', 0.06, i * 0.11)); },

@@ -5,7 +5,7 @@
  *
  *   .  empty          #  solid block        ^  floor spikes
  *   P  Nandini spawn  c  the cake (goal)    v  ceiling spikes
- *   f  checkpoint     *  gift (optional collectible)
+ *   f  checkpoint     *  coin (optional collectible)
  *
  * Geometry is tuned against the movement constants in game.js: a full jump
  * clears 3 tiles of height and roughly 4.5 tiles of distance, so a 2-up /
@@ -47,7 +47,7 @@ const LEVELS = [
   },
   {
     name: 'Balloon Balconies',
-    hint: 'Spikes hurt. So does falling. Take the high road for more gifts.',
+    hint: 'Spikes hurt. So does falling. Take the high road for more coins.',
     sky: ['#f57fb4', '#ffe6f2'],
     hill: '#b76ec8',
     hillBack: '#dba9e6',
@@ -147,7 +147,7 @@ function buildLevel(def) {
   }
 
   const spikes = [];
-  const gifts = [];
+  const coins = [];
   const checkpoints = [];
   let spawn = { x: TILE, y: 0 };
   let cake = null;
@@ -163,7 +163,7 @@ function buildLevel(def) {
       } else if (ch === 'v') {
         spikes.push({ x: px + 4, y: py, w: TILE - 8, h: TILE - 18, dir: 'down', tx: px, ty: py });
       } else if (ch === '*') {
-        gifts.push({ x: px + TILE / 2, y: py + TILE / 2, taken: false, seed: gifts.length * 1.7 });
+        coins.push({ x: px + TILE / 2, y: py + TILE / 2, taken: false, seed: coins.length * 1.7 });
       } else if (ch === 'f') {
         checkpoints.push({ x: px + TILE / 2, y: py + TILE, active: false });
       } else if (ch === 'P') {
@@ -182,7 +182,7 @@ function buildLevel(def) {
     height: h * TILE,
     solids,
     spikes,
-    gifts,
+    coins,
     checkpoints,
     spawn,
     cake,
