@@ -27,8 +27,8 @@ body {
   padding: 6px;
 }
 
-/* The canvas sizes itself to a whole-number multiple of 320x180 (see
-   layout() in game.js); the stage just wraps and centres it. */
+/* The canvas sizes itself in game.js to fill the viewport at the game's own
+   aspect ratio; the stage just wraps and centres it. */
 #stage {
   position: relative;
   line-height: 0;
@@ -1285,9 +1285,8 @@ const BUF = { w: 640, h: 360 };
 const VIEW = { w: 960, h: 540 };
 const A2T = VIEW.w / BUF.w;      // art pixels -> text-space pixels
 const WORLD_VIEW = { w: BUF.w / ART, h: BUF.h / ART };
-let SCALE = 0;   // art pixels -> css pixels, always a whole number (0 = not laid out yet)
+let SCALE = 0;   // art pixels -> css pixels (0 = not laid out yet)
 let DPR = 1;
-let STORE = 1;   // whole-number scale of the backing store
 let TURNED = null;
 
 // Movement constants. The level maps in levels.js are designed against these:
@@ -1822,33 +1821,35 @@ function layout() {
   const vh = document.documentElement.clientHeight;
   const availW = (turned ? vh : vw) - 8;
   const availH = (turned ? vw : vh) - footH - 8;
-  // Whole-number zoom keeps every art pixel the same size. Only when the
-  // window is smaller than the art itself do we fall back to a fractional
-  // scale, because the alternative is not fitting on screen at all.
-  const fit = Math.min(availW / BUF.w, availH / BUF.h);
-  const s = fit >= 1 ? Math.floor(fit) : Math.max(0.35, fit);
+  // Fill the window: scale continuously to whatever the viewport allows,
+  // rather than only stepping at whole numbers. A whole-number-only zoom
+  // keeps every art pixel identically sized, but on most windows it leaves
+  // large unused borders — the window's aspect ratio is essentially never an
+  // exact multiple of the game's. The backing store is sized to match this
+  // exact CSS size (times devicePixelRatio) and drawn with image-rendering:
+  // pixelated, so edges stay crisp even though pixels are no longer perfectly
+  // even multiples of one screen pixel.
+  const s = Math.max(0.35, Math.min(availW / BUF.w, availH / BUF.h));
   if (s === SCALE && dpr === DPR && turned === TURNED) return;
   TURNED = turned;
   SCALE = s;
   DPR = dpr;
-  const store = Math.max(1, Math.round(s));   // backing store stays whole
   canvas.style.width = Math.round(BUF.w * s) + 'px';
   canvas.style.height = Math.round(BUF.h * s) + 'px';
-  canvas.width = BUF.w * store * dpr;
-  canvas.height = BUF.h * store * dpr;
-  STORE = store;
+  canvas.width = Math.round(BUF.w * s * dpr);
+  canvas.height = Math.round(BUF.h * s * dpr);
 }
 
 /* Switch the canvas into the 960x540 space the text is written against. */
 function textSpace() {
-  const k = (DPR * STORE * BUF.w) / VIEW.w;
+  const k = (DPR * SCALE * BUF.w) / VIEW.w;
   ctx.setTransform(k, 0, 0, k, 0, 0);
 }
 
 function blitBuffer() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(buffer, 0, 0, BUF.w, BUF.h, 0, 0, BUF.w * STORE, BUF.h * STORE);
+  ctx.drawImage(buffer, 0, 0, BUF.w, BUF.h, 0, 0, BUF.w * SCALE, BUF.h * SCALE);
 }
 
 function render() {

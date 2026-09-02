@@ -24,8 +24,8 @@ body {
   padding: 6px;
 }
 
-/* The canvas sizes itself to a whole-number multiple of 320x180 (see
-   layout() in game.js); the stage just wraps and centres it. */
+/* The canvas sizes itself in game.js to fill the viewport at the game's own
+   aspect ratio; the stage just wraps and centres it. */
 #stage {
   position: relative;
   line-height: 0;
