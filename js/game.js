@@ -120,6 +120,7 @@ function startLevel(index) {
     hp: MAX_HP,
     invuln: 0,
     runPhase: 0,
+    idleTime: 0,
     respawn: { x: L.spawn.x, y: L.spawn.y },
     fadeIn: 0,
   };
@@ -269,6 +270,7 @@ function updatePlay(dt) {
 
   p.x = clamp(p.x, PLAYER_W / 2, L.width - PLAYER_W / 2);
   if (p.grounded && Math.abs(p.vx) > 20) p.runPhase += dt * (6 + Math.abs(p.vx) / 34);
+  p.idleTime = p.grounded && dir === 0 && Math.abs(p.vx) < 20 ? p.idleTime + dt : 0;
   p.invuln = Math.max(0, p.invuln - dt);
   p.fadeIn = Math.max(0, p.fadeIn - dt);
 
@@ -397,8 +399,8 @@ function titleScene() {
   bctx.drawImage(art.bush, 118, 196 - art.bush.height + 5);
 
   drawNandini(bctx, 214, 200, 1, {
-    runPhase: state.time * 6, grounded: true, rising: false, hurtFlash: false,
-    speed: 0, time: state.time, victory: false,
+    runPhase: 0, grounded: true, rising: false, hurtFlash: false,
+    speed: 0, idleTime: state.time, time: state.time, victory: false,
   });
   drawCake(bctx, 430, 200, state.time);
   for (let i = 0; i < MAX_HP; i++) drawFlowerIcon(bctx, 8 + i * 19, 8, true);
@@ -409,7 +411,7 @@ function titleScene() {
   const y = 296;
   drawNandini(bctx, 92, y + 24, 1, {
     runPhase: 0, grounded: true, rising: false, hurtFlash: false,
-    speed: 0, time: state.time, victory: false,
+    speed: 0, idleTime: 0, time: state.time, victory: false,
   });
   drawNandini(bctx, 196, y + 24, 1, {
     runPhase: 0, grounded: false, rising: true, hurtFlash: false,
@@ -565,6 +567,7 @@ function render() {
       rising: p.vy < 0,
       hurtFlash: p.invuln > 0,
       speed: Math.abs(p.vx),
+      idleTime: p.idleTime,
       time: state.time,
       victory: state.mode === 'win' || state.mode === 'clear',
     });

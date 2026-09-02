@@ -118,11 +118,24 @@ const assetUrl = (name) => ASSET_URLS[name] || `assets/${name}.png`;
 
 const SHEET = new Image();
 SHEET.src = assetUrl('nandini');
-const CELL_W = 42;
-const CELL_H = 48;
-const FRAMES = ['idle', 'walk1', 'run1', 'walk2', 'run2', 'jump', 'fall', 'hurt', 'cheer'];
+const FRAMES = ['idle', 'blink', 'wave', 'kiss', 'walk1', 'run1', 'walk2', 'run2',
+                'jump', 'fall', 'hurt', 'cheer'];
 const FRAME_INDEX = Object.fromEntries(FRAMES.map((n, i) => [n, i]));
 const RUN_CYCLE = ['run1', 'run2'];
+let CELL_W = 42;
+let CELL_H = 48;
+
+/* Left alone, she blinks every few seconds and, after a longer wait, waves or
+ * blows a kiss — so standing still never looks like a frozen screen. */
+function idlePose(t) {
+  if (t > 6) {
+    const since = t - 6;
+    if (since % 8 < 1.4) return Math.floor(since / 8) % 2 ? 'kiss' : 'wave';
+  }
+  const b = t % 3.4;
+  if (b < 0.13 || (b > 0.26 && b < 0.39)) return 'blink';   // a double blink
+  return 'idle';
+}
 
 function nandiniFrame(anim) {
   if (anim.victory) return 'cheer';
@@ -132,15 +145,21 @@ function nandiniFrame(anim) {
     const n = RUN_CYCLE.length;
     return RUN_CYCLE[((Math.floor(anim.runPhase) % n) + n) % n];
   }
-  return 'idle';
+  return idlePose(anim.idleTime || 0);
 }
 
 /* (cx, feetY) is the bottom-centre of her hitbox, in world pixels. */
 function drawNandini(ctx, cx, feetY, facing, anim) {
   if (!SHEET.complete || !SHEET.naturalWidth) return;
-  const idx = FRAME_INDEX[nandiniFrame(anim)];
+  CELL_W = SHEET.naturalWidth / FRAMES.length;
+  CELL_H = SHEET.naturalHeight;
+
+  const pose = nandiniFrame(anim);
+  const idx = FRAME_INDEX[pose];
+  // a slow breath while she stands, so the sprite is never perfectly still
+  const breath = (pose === 'idle' || pose === 'blink') && ((anim.idleTime || 0) % 1.8) > 0.9 ? -1 : 0;
   const x = aw(cx) - Math.floor(CELL_W / 2);
-  const y = aw(feetY) - CELL_H;
+  const y = aw(feetY) - CELL_H + breath;
   ctx.save();
   if (facing < 0) {
     ctx.translate(x + CELL_W, y);

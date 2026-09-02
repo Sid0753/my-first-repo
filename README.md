@@ -57,7 +57,7 @@ the start. The coins are optional — they're just there to be found.
 ```
 index.html          page shell, canvas, touch buttons
 css/style.css       layout and the on-screen controls
-assets/nandini.png  the character spritesheet: 9 frames, 42x48 each
+assets/nandini.png  the character spritesheet: 12 frames, 42x48 each
 assets/sky-*.png    the three painted skies (day, rose, dusk)
 js/levels.js        the three levels, drawn as ASCII maps, plus the map parser
 js/sprites.js       terrain, background, props and the character renderer
@@ -75,9 +75,13 @@ buffer pixel is one art pixel, and that buffer is then scaled up by a whole numb
 so no pixel is ever stretched unevenly. The canvas picks the largest whole-number
 zoom the window allows, which is why the game is letterboxed rather than stretched.
 
-Nandini herself is a spritesheet in `assets/nandini.png` — idle, walk, run, jump,
-fall, hurt and cheer frames, all cut to one scale and aligned on the feet so she
-never shifts as the animation plays.
+Nandini herself is a spritesheet in `assets/nandini.png` — idle, blink, wave,
+kiss, walk, run, jump, fall, hurt and cheer frames, all cut to one scale and
+aligned on the feet so she never shifts as the animation plays.
+
+Left standing, she breathes, blinks every few seconds, and after a longer pause
+waves or blows a kiss, so the screen never looks frozen. The timer resets the
+moment she moves.
 
 Each level has a painted sky in `assets/`, drawn twice — once normally, once
 mirrored — so the slow horizontal parallax never runs off the end or shows a seam.
