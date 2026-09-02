@@ -1,10 +1,17 @@
 /* Nandini's Birthday Run — main loop, physics and game states. */
 
+// The game is drawn as pixel art into a small buffer, then blown up by whole
+// pixels onto the visible canvas. BUF is the art resolution; ART (in
+// sprites.js) converts world pixels to art pixels.
+const BUF = { w: 640, h: 360 };
+// Text is laid out in a fixed 960x540 space and scaled to whatever integer
+// zoom the window allows, so the copy never has to move.
 const VIEW = { w: 960, h: 540 };
-// The world is drawn zoomed in, so Nandini fills a comfortable part of the
-// screen. WORLD_VIEW is how much of the level fits on screen, in world pixels.
-const ZOOM = 1.5;
-const WORLD_VIEW = { w: VIEW.w / ZOOM, h: VIEW.h / ZOOM };
+const A2T = VIEW.w / BUF.w;      // art pixels -> text-space pixels
+const WORLD_VIEW = { w: BUF.w / ART, h: BUF.h / ART };
+let SCALE = 0;   // art pixels -> css pixels, always a whole number (0 = not laid out yet)
+let DPR = 1;
+let STORE = 1;   // whole-number scale of the backing store
 
 // Movement constants. The level maps in levels.js are designed against these:
 // a full jump clears 131px (3 tiles) of height and about 190px of distance.
@@ -27,6 +34,14 @@ const PLAYER_H = 40;
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+
+// The pixel-art buffer. Everything is drawn here first, at 320x180.
+const buffer = document.createElement('canvas');
+buffer.width = BUF.w;
+buffer.height = BUF.h;
+const bctx = buffer.getContext('2d');
+
+const FONT = '"Press Start 2P", "Courier New", monospace';
 
 const state = {
   mode: 'title',          // title | intro | play | hurtReset | dead | clear | win
@@ -323,219 +338,222 @@ function updateParticles(dt) {
 function drawParticles() {
   for (const q of state.particles) {
     const a = clamp(q.life / q.maxLife, 0, 1);
-    ctx.save();
-    ctx.globalAlpha = a;
-    ctx.translate(q.x, q.y);
-    ctx.rotate(q.rot);
-    ctx.fillStyle = q.color;
-    if (q.shape === 'confetti') ctx.fillRect(-q.size / 2, -q.size / 4, q.size, q.size / 2);
-    else if (q.shape === 'petal') { ctx.beginPath(); ctx.ellipse(0, 0, q.size, q.size * 0.6, 0, 0, Math.PI * 2); ctx.fill(); }
-    else { ctx.beginPath(); ctx.arc(0, 0, q.size * a, 0, Math.PI * 2); ctx.fill(); }
-    ctx.restore();
+    if (a < 0.15 && Math.floor(state.time * 20) % 2) continue;   // blink out
+    const x = Math.round(q.x * ART);
+    const y = Math.round(q.y * ART);
+    bctx.fillStyle = q.color;
+    if (q.shape === 'confetti') bctx.fillRect(x, y, 4, 2);
+    else bctx.fillRect(x, y, a > 0.5 ? 3 : 2, a > 0.5 ? 3 : 2);
   }
 }
 
-function drawHUD() {
-  const p = state.player;
-  const L = state.level;
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(20,16,32,0.32)';
-  roundRect(ctx, 14, 12, 214, 40, 20);
-  ctx.fill();
-  for (let i = 0; i < MAX_HP; i++) {
-    drawFlower(ctx, 40 + i * 38, 32, 13, i < p.hp, state.time * 0.5 + i);
-  }
-  ctx.restore();
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(20,16,32,0.32)';
-  roundRect(ctx, VIEW.w - 214, 12, 200, 40, 20);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 17px Fredoka, "Trebuchet MS", sans-serif';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(`Level ${state.levelIndex + 1} · ${L.name}`, VIEW.w - 26, 33);
-  ctx.restore();
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(20,16,32,0.32)';
-  roundRect(ctx, 14, 60, 118, 32, 16);
-  ctx.fill();
-  drawGift(ctx, { x: 34, y: 76, seed: 0 }, 0);
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 16px Fredoka, "Trebuchet MS", sans-serif';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(`${state.giftsThisLevel} / ${L.gifts.length}`, 52, 77);
-  ctx.restore();
-}
-
-function panel(x, y, w, h) {
-  ctx.fillStyle = 'rgba(24,18,38,0.82)';
-  roundRect(ctx, x, y, w, h, 22);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-}
-
-function centeredText(text, y, size, color = '#fff', weight = 'bold') {
+/* Text goes onto the full-size canvas rather than the pixel buffer, so it
+ * stays readable; everything else is pixels. */
+function txt(str, x, y, size, color, align = 'center') {
   ctx.fillStyle = color;
-  ctx.font = `${weight} ${size}px Fredoka, "Trebuchet MS", sans-serif`;
-  ctx.textAlign = 'center';
+  ctx.font = `${size}px ${FONT}`;
+  ctx.textAlign = align;
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, VIEW.w / 2, y);
+  ctx.fillText(str, x, y);
 }
 
-function drawTitle() {
-  const g = ctx.createLinearGradient(0, 0, 0, VIEW.h);
-  g.addColorStop(0, '#ff9ec2');
-  g.addColorStop(1, '#ffe6f0');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, VIEW.w, VIEW.h);
+function textWidthArt(str, size) {
+  ctx.font = `${size}px ${FONT}`;
+  return Math.ceil(ctx.measureText(str).width / A2T);
+}
 
-  for (let i = 0; i < 9; i++) {
-    const bx = 90 + i * 96;
-    const by = 120 + Math.sin(state.time * 1.1 + i) * 26 + (i % 3) * 40;
-    drawCheckpoint(ctx, { x: bx, y: by + 90, active: true }, state.time + i);
+function drawHUDIcons() {
+  const p = state.player;
+  pixelPanel(bctx, 6, 6, 5 * 16 + 12, 25);
+  for (let i = 0; i < MAX_HP; i++) drawFlowerIcon(bctx, 12 + i * 16, 12, i < p.hp);
+
+  pixelPanel(bctx, 6, 37, 74, 24);
+  drawGiftIcon(bctx, 11, 41);
+
+  const label = `L${state.levelIndex + 1} ${state.level.name.toUpperCase()}`;
+  const w = textWidthArt(label, 9) + 20;
+  pixelPanel(bctx, BUF.w - 6 - w, 6, w, 25);
+  state.hudLabel = { label, w };
+}
+
+function drawHUDText() {
+  txt(`${state.giftsThisLevel}/${state.level.gifts.length}`, 32 * A2T, 49 * A2T, 9, '#fff', 'left');
+  const h = state.hudLabel;
+  if (h) txt(h.label, (BUF.w - 16) * A2T, 18 * A2T, 9, '#ffd84d', 'right');
+}
+
+/* ------------------------------------------------------------- title screen */
+
+function titleScene() {
+  for (let i = 0; i < 11; i++) {
+    px(bctx, 0, Math.floor((i * BUF.h) / 11), BUF.w, Math.ceil(BUF.h / 11) + 1,
+       mixHex('#ff8fb8', '#ffe6f0', i / 10));
+  }
+  for (let i = 0; i < 11; i++) {
+    const bx = 18 + i * 58;
+    const by = 44 + ((i * 37) % 92) + (Math.floor(state.time * 2 + i) % 2) * 2;
+    bctx.drawImage(SPR_BALLOON, bx, by);
   }
 
-  centeredText("Nandini's Birthday Run", 146, 52, '#4a1f3a');
-  centeredText('Five flowers. Three levels. One cake.', 192, 21, '#7a3a5e', '600');
-
-  ctx.save();
-  ctx.translate(VIEW.w / 2, 348);
-  ctx.scale(2.1, 2.1);
-  drawNandini(ctx, -58, 0, 1, {
-    runPhase: state.time * 6, grounded: true, vy: 0, hurtFlash: false, speed: 40, time: state.time, victory: false,
+  bctx.save();
+  bctx.scale(2, 2);
+  drawNandini(bctx, 125, 128, 1, {
+    runPhase: state.time * 6, grounded: true, rising: false, hurtFlash: false,
+    speed: 0, time: state.time, victory: false,
   });
-  drawCake(ctx, 58, 0, state.time);
-  ctx.restore();
-  for (let i = 0; i < MAX_HP; i++) drawFlower(ctx, VIEW.w / 2 - 76 + i * 38, 378, 13, true, state.time * 0.4 + i);
+  drawCake(bctx, 196, 128, state.time);
+  bctx.restore();
+  for (let i = 0; i < MAX_HP; i++) drawFlowerIcon(bctx, 252 + i * 28, 268, true);
 
-  panel(VIEW.w / 2 - 260, 400, 520, 108);
-  centeredText('← → or A D to move · Space to jump', 428, 19);
-  centeredText('Spikes and long falls cost a flower. Lose all five and you start the level over.', 456, 15, 'rgba(255,255,255,0.82)', '500');
-  const pulse = 0.65 + Math.sin(state.time * 4) * 0.35;
-  ctx.globalAlpha = pulse;
-  centeredText('Press ENTER to start', 487, 21, '#ffd84d');
-  ctx.globalAlpha = 1;
+  pixelPanel(bctx, 52, 288, BUF.w - 104, 62);
+}
 
-  if (state.unlocked > 1) {
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(74,31,58,0.75)';
-    ctx.font = '500 15px Fredoka, "Trebuchet MS", sans-serif';
-    ctx.fillText(`Press 1–${state.unlocked} to jump straight to a level`, VIEW.w / 2, 526);
+function titleText() {
+  txt("NANDINI'S", VIEW.w / 2, 46, 30, '#4a1f3a');
+  txt('BIRTHDAY RUN', VIEW.w / 2, 84, 30, '#c0246b');
+  txt('5 FLOWERS  3 LEVELS  1 CAKE', VIEW.w / 2, 116, 10, '#7a3a5e');
+  txt('ARROWS OR A/D TO MOVE   SPACE TO JUMP', VIEW.w / 2, 462, 10, '#fff');
+  txt('SPIKES AND FALLS COST A FLOWER', VIEW.w / 2, 486, 9, '#ffb8d2');
+  if (Math.floor(state.time * 2) % 2) txt('PRESS ENTER TO START', VIEW.w / 2, 512, 11, '#ffd84d');
+  if (state.unlocked > 1) txt(`PRESS 1-${state.unlocked} FOR A LEVEL`, VIEW.w / 2, 532, 8, '#7a3a5e');
+}
+
+/* ----------------------------------------------------------------- overlays */
+
+function overlayPanels() {
+  const m = state.mode;
+  if (m === 'intro' && state.modeTime < 2.1) pixelPanel(bctx, 80, 112, BUF.w - 160, 92);
+  else if (m === 'dead') {
+    px(bctx, 0, 0, BUF.w, BUF.h, 'rgba(20,10,24,0.62)');
+    pixelPanel(bctx, 68, 116, BUF.w - 136, 104);
+  } else if (m === 'clear') {
+    px(bctx, 0, 0, BUF.w, BUF.h, 'rgba(20,10,24,0.5)');
+    pixelPanel(bctx, 68, 104, BUF.w - 136, 124);
+  } else if (m === 'win' && state.modeTime > 0.6) {
+    px(bctx, 0, 0, BUF.w, BUF.h, 'rgba(20,10,24,0.6)');
+    pixelPanel(bctx, 48, 76, BUF.w - 96, 192);
   }
 }
 
-function drawOverlays() {
+function overlayText() {
   const L = state.level;
-  if (state.mode === 'intro') {
-    const t = state.modeTime;
-    const a = t < 1.6 ? 1 : clamp(1 - (t - 1.6) / 0.5, 0, 1);
-    ctx.globalAlpha = a;
-    panel(VIEW.w / 2 - 300, 170, 600, 200);
-    centeredText(`Level ${state.levelIndex + 1}`, 222, 22, '#ffd84d');
-    centeredText(L.name, 268, 40);
-    centeredText(L.hint, 320, 17, 'rgba(255,255,255,0.85)', '500');
-    ctx.globalAlpha = 1;
-  } else if (state.mode === 'dead') {
-    ctx.fillStyle = 'rgba(20,10,24,0.6)';
-    ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-    panel(VIEW.w / 2 - 280, 180, 560, 190);
-    centeredText('Out of flowers!', 232, 38, '#ff9ec2');
-    centeredText('The cake is still waiting.', 278, 19, 'rgba(255,255,255,0.85)', '500');
-    ctx.globalAlpha = 0.65 + Math.sin(state.time * 4) * 0.35;
-    centeredText('Press ENTER to try this level again', 330, 21, '#ffd84d');
-    ctx.globalAlpha = 1;
-  } else if (state.mode === 'clear') {
-    ctx.fillStyle = 'rgba(20,10,24,0.45)';
-    ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-    panel(VIEW.w / 2 - 280, 170, 560, 210);
-    centeredText('Level complete!', 222, 36, '#ffd84d');
-    centeredText(`Gifts found: ${state.giftsThisLevel} / ${L.gifts.length}`, 272, 20, '#fff', '600');
-    centeredText(`Flowers left: ${state.player.hp} / ${MAX_HP}`, 302, 20, '#fff', '600');
-    ctx.globalAlpha = 0.65 + Math.sin(state.time * 4) * 0.35;
-    centeredText('Press ENTER for the next level', 348, 20, '#ffd84d');
-    ctx.globalAlpha = 1;
-  } else if (state.mode === 'win') {
-    ctx.fillStyle = `rgba(20,10,24,${clamp(state.modeTime / 1.2, 0, 0.55)})`;
-    ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-    if (state.modeTime > 0.6) {
-      panel(VIEW.w / 2 - 320, 130, 640, 290);
-      const wob = Math.sin(state.time * 3) * 2;
-      ctx.save();
-      ctx.translate(VIEW.w / 2, 0);
-      ctx.rotate(wob * 0.004);
-      ctx.translate(-VIEW.w / 2, 0);
-      centeredText('Happy Birthday,', 190, 34, '#fff');
-      centeredText('Nandini!', 244, 58, '#ffd84d');
-      ctx.restore();
-      centeredText('She made it to the cake. 🎂', 292, 20, 'rgba(255,255,255,0.9)', '500');
-      centeredText(`Gifts collected: ${state.giftsTotal}   ·   Flowers left: ${state.player.hp} / ${MAX_HP}`, 326, 18, '#fff', '600');
-      ctx.globalAlpha = 0.65 + Math.sin(state.time * 4) * 0.35;
-      centeredText('Press ENTER to play again', 384, 20, '#ffd84d');
-      ctx.globalAlpha = 1;
-    }
+  const m = state.mode;
+  const blink = Math.floor(state.time * 2) % 2;
+  if (m === 'intro' && state.modeTime < 2.1) {
+    txt(`LEVEL ${state.levelIndex + 1}`, VIEW.w / 2, 200, 10, '#ffd84d');
+    txt(L.name.toUpperCase(), VIEW.w / 2, 232, 16, '#fff');
+    txt(L.hint.toUpperCase(), VIEW.w / 2, 268, 8, '#c9b6d8');
+  } else if (m === 'dead') {
+    txt('OUT OF FLOWERS', VIEW.w / 2, 204, 20, '#ff9ec2');
+    txt('THE CAKE IS STILL WAITING', VIEW.w / 2, 244, 9, '#c9b6d8');
+    if (blink) txt('PRESS ENTER TO RETRY', VIEW.w / 2, 288, 11, '#ffd84d');
+  } else if (m === 'clear') {
+    txt('LEVEL COMPLETE', VIEW.w / 2, 190, 19, '#ffd84d');
+    txt(`GIFTS ${state.giftsThisLevel}/${L.gifts.length}`, VIEW.w / 2, 228, 11, '#fff');
+    txt(`FLOWERS ${state.player.hp}/${MAX_HP}`, VIEW.w / 2, 254, 11, '#fff');
+    if (blink) txt('PRESS ENTER', VIEW.w / 2, 296, 11, '#ffd84d');
+  } else if (m === 'win' && state.modeTime > 0.6) {
+    txt('HAPPY BIRTHDAY', VIEW.w / 2, 158, 24, '#fff');
+    txt('NANDINI!', VIEW.w / 2, 204, 34, '#ffd84d');
+    txt('SHE MADE IT TO THE CAKE', VIEW.w / 2, 250, 10, '#ffb8d2');
+    txt(`GIFTS ${state.giftsTotal}   FLOWERS ${state.player.hp}/${MAX_HP}`, VIEW.w / 2, 286, 10, '#fff');
+    if (blink) txt('PRESS ENTER TO PLAY AGAIN', VIEW.w / 2, 330, 10, '#ffd84d');
   }
+}
+
+/* ------------------------------------------------------------------- render */
+
+/* Size the canvas to a whole-number multiple of the art resolution. Anything
+ * else would resample the pixels unevenly and make some of them fatter than
+ * others. */
+function layout() {
+  const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+  const foot = document.getElementById('footnote');
+  const footH = foot && getComputedStyle(foot).display !== 'none' ? foot.offsetHeight + 12 : 4;
+  const availW = document.documentElement.clientWidth - 8;
+  const availH = document.documentElement.clientHeight - footH - 8;
+  // Whole-number zoom keeps every art pixel the same size. Only when the
+  // window is smaller than the art itself do we fall back to a fractional
+  // scale, because the alternative is not fitting on screen at all.
+  const fit = Math.min(availW / BUF.w, availH / BUF.h);
+  const s = fit >= 1 ? Math.floor(fit) : Math.max(0.35, fit);
+  if (s === SCALE && dpr === DPR) return;
+  SCALE = s;
+  DPR = dpr;
+  const store = Math.max(1, Math.round(s));   // backing store stays whole
+  canvas.style.width = Math.round(BUF.w * s) + 'px';
+  canvas.style.height = Math.round(BUF.h * s) + 'px';
+  canvas.width = BUF.w * store * dpr;
+  canvas.height = BUF.h * store * dpr;
+  STORE = store;
+}
+
+/* Switch the canvas into the 960x540 space the text is written against. */
+function textSpace() {
+  const k = (DPR * STORE * BUF.w) / VIEW.w;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+}
+
+function blitBuffer() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(buffer, 0, 0, BUF.w, BUF.h, 0, 0, BUF.w * STORE, BUF.h * STORE);
 }
 
 function render() {
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  if (canvas.width !== VIEW.w * dpr || canvas.height !== VIEW.h * dpr) {
-    canvas.width = VIEW.w * dpr;
-    canvas.height = VIEW.h * dpr;
-  }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, VIEW.w, VIEW.h);
+  layout();
 
-  if (state.mode === 'title') { drawTitle(); return; }
+  if (state.mode === 'title') {
+    titleScene();
+    blitBuffer();
+    textSpace();
+    titleText();
+    return;
+  }
 
   const L = state.level;
   const p = state.player;
-  const sx = state.shake > 0 ? (Math.random() - 0.5) * state.shake : 0;
-  const sy = state.shake > 0 ? (Math.random() - 0.5) * state.shake : 0;
 
-  ctx.save();
-  ctx.scale(ZOOM, ZOOM);
-  drawBackground(ctx, L, state.cam, WORLD_VIEW, state.time);
-  ctx.translate(-Math.round(state.cam.x) + sx, -Math.round(state.cam.y) + sy);
+  drawBackground(bctx, L, state.cam, BUF, state.time);
 
-  drawTerrain(ctx, L);
-  for (const s of L.spikes) drawSpikes(ctx, s);
-  for (const c of L.checkpoints) drawCheckpoint(ctx, c, state.time);
-  for (const g of L.gifts) if (!g.taken) drawGift(ctx, g, state.time);
-  if (L.cake) drawCake(ctx, L.cake.x, L.cake.y, state.time);
+  const shake = state.shake > 0 ? Math.round((Math.random() - 0.5) * state.shake) : 0;
+  const shakeY = state.shake > 0 ? Math.round((Math.random() - 0.5) * state.shake) : 0;
+
+  bctx.save();
+  bctx.translate(-Math.round(state.cam.x * ART) + shake, -Math.round(state.cam.y * ART) + shakeY);
+
+  drawTerrain(bctx, L, state.cam, BUF);
+  for (const s of L.spikes) drawSpikes(bctx, s);
+  for (const c of L.checkpoints) drawCheckpoint(bctx, c, state.time);
+  for (const g of L.gifts) if (!g.taken) drawGift(bctx, g, state.time);
+  if (L.cake) drawCake(bctx, L.cake.x, L.cake.y, state.time);
   drawParticles();
 
   const blinking = p.invuln > 0 && Math.floor(state.time * 18) % 2 === 0;
-  if (!blinking) {
-    ctx.globalAlpha = p.fadeIn > 0 ? 1 - p.fadeIn / 0.45 : 1;
-    drawNandini(ctx, p.x, p.y, p.facing, {
+  const fading = p.fadeIn > 0 && Math.floor(state.time * 24) % 2 === 0;
+  if (!blinking && !fading) {
+    drawNandini(bctx, p.x, p.y, p.facing, {
       runPhase: p.runPhase,
       grounded: p.grounded,
+      rising: p.vy < 0,
       hurtFlash: p.invuln > 0,
       speed: Math.abs(p.vx),
       time: state.time,
       victory: state.mode === 'win' || state.mode === 'clear',
     });
-    ctx.globalAlpha = 1;
   }
-  ctx.restore();
+  bctx.restore();
 
-  drawHUD();
-  drawOverlays();
+  drawHUDIcons();
+  overlayPanels();
 
-  if (Sound.muted) {
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = '500 13px Fredoka, "Trebuchet MS", sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText('muted (M)', VIEW.w - 16, VIEW.h - 12);
-  }
+  blitBuffer();
+  textSpace();
+
+  drawHUDText();
+  overlayText();
+
+  if (Sound.muted) txt('MUTED (M)', VIEW.w - 16, VIEW.h - 14, 8, 'rgba(255,255,255,0.6)', 'right');
 }
 
 /* --------------------------------------------------------------- game loop */
@@ -568,7 +586,9 @@ let accumulator = 0;
 const STEP = 1 / 120;
 
 function frame(now) {
-  const raw = Math.min(0.1, (now - lastTime) / 1000);
+  // Clamp to >= 0: the first rAF timestamp can predate the performance.now()
+  // captured at load, and a negative delta would run the physics backwards.
+  const raw = clamp((now - lastTime) / 1000, 0, 0.1);
   lastTime = now;
   state.time += raw;
   state.modeTime += raw;
@@ -603,6 +623,8 @@ function frame(now) {
 /* ------------------------------------------------------------------- start */
 
 loadProgress();
+layout();
+window.addEventListener('resize', layout);
 Input.bindTouch(document.getElementById('btn-left'), 'left');
 Input.bindTouch(document.getElementById('btn-right'), 'right');
 Input.bindTouch(document.getElementById('btn-jump'), 'jump');

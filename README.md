@@ -39,17 +39,32 @@ the start. The wrapped gifts are optional — they're just there to be found.
 ## How it's put together
 
 ```
-index.html        page shell, canvas, touch buttons
-css/style.css     layout and the on-screen controls
-js/levels.js      the three levels, drawn as ASCII maps, plus the map parser
-js/sprites.js     every drawing routine (Nandini, cake, flowers, spikes, scenery)
-js/input.js       keyboard and touch input
-js/audio.js       small WebAudio blips, and the win jingle
-js/game.js        physics, collision, camera, game states, the main loop
+index.html          page shell, canvas, touch buttons
+css/style.css       layout and the on-screen controls
+assets/nandini.png  the character spritesheet: 9 frames, 42x48 each
+js/levels.js        the three levels, drawn as ASCII maps, plus the map parser
+js/sprites.js       terrain, background, props and the character renderer
+js/input.js         keyboard and touch input
+js/audio.js         small WebAudio blips, and the win jingle
+js/game.js          physics, collision, camera, game states, the main loop
 ```
 
-There are no image or sound files — the artwork is drawn with canvas paths and the
-sounds are synthesised, so nothing can go missing.
+### The art
+
+The game renders as pixel art: everything is drawn into a 640x360 buffer where one
+buffer pixel is one art pixel, and that buffer is then scaled up by a whole number
+so no pixel is ever stretched unevenly. The canvas picks the largest whole-number
+zoom the window allows, which is why the game is letterboxed rather than stretched.
+
+Nandini herself is a spritesheet in `assets/nandini.png` — idle, walk, run, jump,
+fall, hurt and cheer frames, all cut to one scale and aligned on the feet so she
+never shifts as the animation plays.
+
+Everything else is drawn in code: the terrain tiles (baked once per level into a
+few variants, with notched grass caps, grass dripping into the dirt and speckled
+soil), the dithered sky, the clouds, the horizon bushes, the cake, the gifts, the
+balloons, the spikes and the HUD. The sound is synthesised with WebAudio. So apart
+from the one spritesheet there is nothing to lose track of.
 
 ### Editing a level
 
@@ -65,3 +80,7 @@ Edit the art, reload the page, and the change is live. Keep every row in a level
 same length. The movement constants at the top of `js/game.js` are what the layouts are
 designed around: a full jump clears three tiles of height and about four and a half
 tiles of distance, so a step two tiles up and three tiles across is always comfortable.
+
+Each level's colours live next to its map — sky, hills, ground, grass and outline —
+and the terrain and background pick everything up from there, so recolouring a level
+is a five-line change.
