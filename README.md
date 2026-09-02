@@ -87,10 +87,17 @@ Each level has a painted sky in `assets/`, drawn twice — once normally, once
 mirrored — so the slow horizontal parallax never runs off the end or shows a seam.
 
 Everything else is drawn in code: the terrain tiles (baked once per level into a
-few variants, with notched grass caps, grass dripping into the dirt and speckled
-soil), trees and bushes scattered deterministically, the two horizon foliage
-bands, the cake and its goal flag, the spinning coins, the balloons, the spikes
-and the HUD. The sound is synthesised with WebAudio.
+handful of variants, with notched grass caps, grass dripping into the dirt and
+banded soil, and a ragged hanging underside on ledges with nothing beneath
+them), the two horizon foliage bands, the cake and its goal flag, the spinning
+coins, the balloons, the spikes and the HUD. The sound is synthesised with
+WebAudio.
+
+Scenery — trees, pines, two sizes of bush, grass tufts, daisies and daisy
+clusters, blue flowers, mushrooms, logs and the occasional snail — is scattered
+deterministically from each tile's own coordinates, so it never crawls as the
+camera moves, and the leafy pieces take their greens from the level palette so
+the same shapes work on the day, rose and dusk levels.
 
 ### Editing a level
 

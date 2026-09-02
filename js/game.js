@@ -395,8 +395,11 @@ function titleScene() {
   for (let tx = 0; tx < BUF.w / ATILE + 1; tx++) {
     bctx.drawImage(art.top[tx % art.top.length], tx * ATILE, 196);
   }
-  bctx.drawImage(art.tree, 30, 196 - art.tree.height + 6);
-  bctx.drawImage(art.bush, 118, 196 - art.bush.height + 5);
+  bctx.drawImage(art.tree, 22, 196 - art.tree.height + 6);
+  bctx.drawImage(art.bushBig, 116, 196 - art.bushBig.height + 5);
+  bctx.drawImage(art.cluster, 168, 196 - art.cluster.height + 5);
+  bctx.drawImage(art.mushroom, 470, 196 - art.mushroom.height + 5);
+  bctx.drawImage(art.tuft, 540, 196 - art.tuft.height + 5);
 
   drawNandini(bctx, 214, 200, 1, {
     runPhase: 0, grounded: true, rising: false, hurtFlash: false,

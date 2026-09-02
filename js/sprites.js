@@ -185,20 +185,22 @@ const SPR_FLOWER_OFF = bake(13, 13, (g) => {
   disc(g, 6, 6, 2, '#8e869c');
 });
 
-/* Spinning coin: four frames, the face narrowing as it turns edge-on. */
+/* Spinning coin: four frames, the face narrowing as it turns edge-on. Shaped
+ * like the rounded gold piece in the reference tileset. */
 const COIN_FRAMES = [8, 6, 3, 6].map((half) => bake(18, 18, (g) => {
   for (let y = -8; y <= 8; y++) {
-    const w = Math.round(half * Math.sqrt(1 - (y * y) / 81));
+    const w = Math.round(half * Math.pow(1 - (y * y) / 81, 0.42));
     if (w <= 0) continue;
     px(g, 9 - w, 9 + y, w * 2, 1, PAL.N);
   }
   if (half >= 6) {
-    for (let y = -5; y <= 5; y++) {
-      const w = Math.round((half - 3) * Math.sqrt(1 - (y * y) / 36));
+    for (let y = -6; y <= 6; y++) {
+      const w = Math.round((half - 3) * Math.pow(1 - (y * y) / 49, 0.42));
       if (w <= 0) continue;
       px(g, 9 - w, 9 + y, w * 2, 1, PAL.m);
     }
-    px(g, 8, 5, 2, 8, PAL.M);
+    px(g, 9 - half + 1, 9, half * 2 - 2, 3, PAL.M);
+    px(g, 7, 4, 2, 3, '#fff6d0');
   }
 }));
 const SPR_COIN = COIN_FRAMES[0];
@@ -335,49 +337,75 @@ function drawSpikes(ctx, s) {
  * The look follows the reference art: a two-tone grass cap with a notched top
  * edge, grass dripping down into the dirt, speckled dirt, and a dark outline
  * around anything exposed. */
-const TOP_VARIANTS = 5;
-const FILL_VARIANTS = 4;
+const TOP_VARIANTS = 8;
+const FILL_VARIANTS = 6;
 
+/* Dirt in the reference tileset is banded, not noisy: a lighter upper layer
+ * under the grass, darker below, with a scatter of chunks for texture. */
 function bakeDirt(g, level, v) {
   px(g, 0, 0, ATILE, ATILE, level.ground);
-  for (let i = 0; i < 16; i++) {
-    const r = rnd(v * 13 + i, i, 3);
-    const x = Math.floor(r * (ATILE - 6));
-    const y = 6 + Math.floor(rnd(i, v, 5) * (ATILE - 10));
-    const w = 2 + Math.floor(rnd(i, v, 7) * 3);
-    px(g, x, y, w * 2, 2, rnd(i, v, 9) > 0.55 ? level.groundLight : level.groundDark);
+  px(g, 0, Math.round(ATILE * 0.55), ATILE, ATILE, level.groundDark);
+  for (let i = 0; i < 9; i++) {
+    const x = Math.floor(rnd(v * 13 + i, i, 3) * (ATILE - 8));
+    const y = 4 + Math.floor(rnd(i, v, 5) * (ATILE - 10));
+    const w = 3 + Math.floor(rnd(i, v, 7) * 4);
+    const below = y > ATILE * 0.55;
+    px(g, x, y, w * 2, 3, below ? level.ground : level.groundLight);
   }
-  for (let i = 0; i < 10; i++) {
-    px(g, Math.floor(rnd(i, v, 11) * (ATILE - 2)), Math.floor(rnd(v, i, 13) * ATILE), 2, 2, level.groundDark);
+  for (let i = 0; i < 6; i++) {
+    px(g, Math.floor(rnd(i, v, 11) * (ATILE - 3)), Math.floor(rnd(v, i, 13) * ATILE), 3, 2, level.groundDark);
+  }
+}
+
+/* The notched grass cap, shared by the solid and the floating tile. The two
+ * outermost columns are fixed so neighbouring tiles always join cleanly. */
+function grassCap(g, level, v) {
+  for (let x = 0; x < ATILE; x += 2) {
+    const edge = x < 2 || x >= ATILE - 2;
+    const t = edge ? 3 : 3 + (rnd(x, v, 17) > 0.55 ? 2 : 0);
+    px(g, x, t, 2, 9, level.grass);
+    px(g, x, t + 9, 2, 5, level.grassDark);
+    px(g, x, t - 2, 2, 2, level.outline);
+  }
+  for (let d = 0; d < 2; d++) {
+    if (rnd(v, d, 19) > 0.62) continue;
+    const dx = 4 + Math.floor(rnd(v, d, 23) * (ATILE - 12));
+    const dh = 6 + Math.floor(rnd(v, d, 29) * 10);
+    px(g, dx, 12, 5, dh, level.grassDark);
+    px(g, dx, 12, 5, 2, level.grass);
   }
 }
 
 function bakeTopTile(level, v) {
   return bake(ATILE, ATILE, (g) => {
     bakeDirt(g, level, v);
+    grassCap(g, level, v);
+  }, false);
+}
 
-    // notched grass line; the two outermost columns are fixed so neighbouring
-    // tiles always join cleanly
-    const tops = [];
-    for (let x = 0; x < ATILE; x += 2) {
-      const edge = x < 2 || x >= ATILE - 2;
-      tops.push(edge ? 3 : 3 + (rnd(x, v, 17) > 0.55 ? 2 : 0));
-    }
-    tops.forEach((t, i) => {
-      const x = i * 2;
-      px(g, x, t, 2, 9, level.grass);
-      px(g, x, t + 9, 2, 5, level.grassDark);
-      px(g, x, t - 2, 2, 2, level.outline);      // outline follows the notches
+/* A ledge with nothing under it gets a ragged, tapering underside instead of a
+ * ruled line — the floating platform in the reference hangs rather than sits. */
+function bakeFloatTile(level, v) {
+  return bake(ATILE, ATILE, (g) => {
+    bakeDirt(g, level, v);
+    grassCap(g, level, v);
+
+    const STEP = 8;
+    const cuts = [];
+    for (let x = 0; x < ATILE; x += STEP) cuts.push(2 + Math.round(rnd(x, v, 71) * 5));
+    g.globalCompositeOperation = 'destination-out';
+    cuts.forEach((c, i) => g.fillRect(i * STEP, ATILE - c, STEP, c));
+    g.globalCompositeOperation = 'source-over';
+
+    g.fillStyle = level.outline;
+    cuts.forEach((c, i) => {
+      const y = ATILE - c;
+      g.fillRect(i * STEP, y - 2, STEP, 2);
+      const next = cuts[i + 1];
+      if (next === undefined) return;
+      const ny = ATILE - next;
+      if (ny !== y) g.fillRect(i * STEP + STEP - 2, Math.min(y, ny) - 2, 2, Math.abs(ny - y) + 2);
     });
-
-    // grass dripping down into the dirt
-    for (let d = 0; d < 2; d++) {
-      if (rnd(v, d, 19) > 0.62) continue;
-      const dx = 4 + Math.floor(rnd(v, d, 23) * (ATILE - 12));
-      const dh = 6 + Math.floor(rnd(v, d, 29) * 10);
-      px(g, dx, 12, 5, dh, level.grassDark);
-      px(g, dx, 12, 5, 2, level.grass);
-    }
   }, false);
 }
 
@@ -385,63 +413,143 @@ function bakeFillTile(level, v) {
   return bake(ATILE, ATILE, (g) => bakeDirt(g, level, v), false);
 }
 
-/* Small scenery that sits on the grass, in the spirit of the reference tileset. */
-function bakeTuft(level) {
-  return bake(11, 8, (g) => {
-    px(g, 5, 0, 1, 8, level.grass);
-    px(g, 2, 2, 1, 6, level.grass);
-    px(g, 8, 2, 1, 6, level.grass);
-    px(g, 3, 4, 2, 4, level.grassDark);
-    px(g, 6, 4, 2, 4, level.grassDark);
-    px(g, 1, 6, 9, 2, level.grassDark);
-  });
-}
-
-function bakeBush(level) {
-  return bake(24, 14, (g) => {
-    disc(g, 7, 7, 6, level.grassDark);
-    disc(g, 16, 8, 5, level.grassDark);
-    disc(g, 11, 5, 5, level.grass);
-    disc(g, 18, 6, 3, level.grass);
-    px(g, 1, 11, 22, 3, level.grassDark);
-  });
-}
-
-function bakeDaisy(level) {
-  return bake(9, 11, (g) => {
-    px(g, 4, 5, 1, 6, level.grassDark);
-    px(g, 2, 8, 2, 1, level.grassDark);
-    for (const [x, y] of [[4, 1], [2, 3], [6, 3], [3, 6], [5, 6]]) disc(g, x, y, 1, '#ffffff');
-    px(g, 4, 3, 1, 1, '#ffcf3d');
-  });
-}
-
+/* Scenery, built to match the reference tileset: two-tone foliage with lighter
+ * patches up and to the left, a dark outline on everything, and chunky forms
+ * that read at a glance. Foliage takes the level's own greens, so the same
+ * shapes work on the day, rose and dusk levels. */
 
 function bakeTree(level) {
-  return bake(46, 54, (g) => {
-    px(g, 20, 34, 7, 20, '#6b4028');
-    px(g, 20, 34, 2, 20, '#8a5738');
-    px(g, 17, 50, 13, 4, '#6b4028');
-    disc(g, 14, 24, 11, level.grassDark);
-    disc(g, 32, 25, 10, level.grassDark);
-    disc(g, 23, 15, 14, level.grassDark);
-    disc(g, 20, 12, 9, level.grass);
-    disc(g, 31, 19, 6, level.grass);
-    disc(g, 12, 21, 5, level.grass);
+  return bake(58, 66, (g) => {
+    // trunk, flaring into roots at the base
+    px(g, 25, 38, 9, 28, level.ground);
+    px(g, 25, 38, 3, 28, level.groundLight);
+    px(g, 22, 60, 15, 6, level.ground);
+    px(g, 20, 63, 19, 3, level.ground);
+    px(g, 33, 44, 2, 16, level.groundDark);
+
+    for (const [x, y, r] of [[29, 26, 21], [14, 32, 14], [44, 32, 14], [29, 15, 16]]) {
+      disc(g, x, y, r, level.grassDark);
+    }
+    for (const [x, y, r] of [[21, 17, 10], [38, 22, 8], [13, 29, 7], [30, 11, 7]]) {
+      disc(g, x, y, r, level.grass);
+    }
   });
 }
 
 function bakePine(level) {
-  return bake(32, 50, (g) => {
-    px(g, 13, 38, 6, 12, '#6b4028');
+  return bake(40, 58, (g) => {
+    px(g, 16, 44, 8, 14, level.ground);
+    px(g, 16, 44, 3, 14, level.groundLight);
     for (let i = 0; i < 3; i++) {
-      const top = 4 + i * 11;
-      const halfMax = 7 + i * 4;
-      for (let r = 0; r < 14; r++) {
-        const hw = 2 + Math.round((r / 13) * halfMax);
-        px(g, 16 - hw, top + r, hw * 2, 1, r < 5 ? level.grass : level.grassDark);
+      const top = 3 + i * 14;
+      const half = 8 + i * 5;
+      for (let r = 0; r < 17; r++) {
+        const hw = 2 + Math.round((r / 16) * half);
+        px(g, 20 - hw, top + r, hw * 2, 1, r < 5 ? level.grass : level.grassDark);
       }
     }
+  });
+}
+
+function bakeBushBig(level) {
+  return bake(36, 22, (g) => {
+    for (const [x, y, r] of [[10, 13, 9], [25, 14, 8], [17, 9, 9]]) disc(g, x, y, r, level.grassDark);
+    for (const [x, y, r] of [[13, 8, 5], [26, 10, 4]]) disc(g, x, y, r, level.grass);
+    px(g, 2, 18, 32, 4, level.grassDark);
+  });
+}
+
+function bakeBushSmall(level) {
+  return bake(24, 15, (g) => {
+    for (const [x, y, r] of [[8, 9, 6], [16, 10, 5], [12, 6, 6]]) disc(g, x, y, r, level.grassDark);
+    disc(g, 10, 5, 3, level.grass);
+    px(g, 2, 12, 20, 3, level.grassDark);
+  });
+}
+
+function bakeTuft(level) {
+  return bake(17, 18, (g) => {
+    const blades = [[0, 9], [4, 3], [8, 0], [12, 5]];
+    for (const [x, top] of blades) {
+      px(g, x, top, 2, 18 - top, level.grassDark);
+      px(g, x, top, 2, Math.max(2, Math.round((18 - top) / 2)), level.grass);
+    }
+    px(g, 2, 16, 11, 2, level.grassDark);
+  });
+}
+
+function petalFlower(g, cx, cy, petal, core) {
+  for (const [dx, dy] of [[0, -3], [3, -1], [2, 3], [-2, 3], [-3, -1]]) disc(g, cx + dx, cy + dy, 2, petal);
+  disc(g, cx, cy, 1, core);
+}
+
+function bakeDaisy(level) {
+  return bake(11, 15, (g) => {
+    px(g, 5, 6, 1, 9, level.grassDark);
+    px(g, 2, 10, 3, 1, level.grassDark);
+    px(g, 6, 12, 3, 1, level.grassDark);
+    petalFlower(g, 5, 4, '#ffffff', '#ffcf3d');
+  });
+}
+
+function bakeDaisyCluster(level) {
+  return bake(24, 16, (g) => {
+    px(g, 2, 11, 20, 5, level.grassDark);
+    for (const [x, y] of [[5, 10], [12, 8], [19, 11]]) {
+      px(g, x, y, 1, 6, level.grassDark);
+      petalFlower(g, x, y - 2, '#ffffff', '#ffcf3d');
+    }
+  });
+}
+
+function bakeBlueFlower(level) {
+  return bake(12, 16, (g) => {
+    px(g, 6, 7, 1, 9, level.grassDark);
+    px(g, 2, 11, 4, 1, level.grassDark);
+    px(g, 7, 13, 4, 1, level.grassDark);
+    petalFlower(g, 6, 5, '#3f86e0', '#ffcf3d');
+    disc(g, 5, 4, 1, '#6aa8f2');
+  });
+}
+
+function bakeMushroom() {
+  return bake(17, 18, (g) => {
+    px(g, 6, 10, 5, 8, '#e8d5b0');       // stem
+    px(g, 6, 10, 2, 8, '#cbb894');
+    for (let r = 0; r < 10; r++) {       // cap: narrow at the crown, wide at the brim
+      const hw = Math.round(Math.sqrt(Math.max(0, 1 - Math.pow((9 - r) / 10, 2))) * 8);
+      px(g, 8 - hw, 1 + r, hw * 2 + 1, 1, r > 7 ? '#2f66aa' : '#3b7fd4');
+    }
+    disc(g, 5, 5, 2, '#8fc2f5');
+    disc(g, 11, 7, 1, '#8fc2f5');
+  });
+}
+
+function bakeLog(level) {
+  return bake(32, 15, (g) => {
+    px(g, 5, 2, 26, 11, level.ground);
+    px(g, 5, 2, 26, 3, level.groundLight);
+    px(g, 5, 10, 26, 3, level.groundDark);
+    for (let x = 10; x < 30; x += 6) px(g, x, 6, 4, 1, level.groundDark);
+    for (let r = 0; r < 11; r++) {        // cut end, with rings
+      const hw = Math.round(Math.sqrt(1 - ((r - 5) / 5.5) ** 2) * 5);
+      px(g, 5 - hw, 2 + r, hw * 2 + 1, 1, level.groundLight);
+    }
+    disc(g, 5, 7, 3, level.ground);
+    disc(g, 5, 7, 1, level.groundDark);
+  });
+}
+
+function bakeSnail() {
+  return bake(20, 14, (g) => {
+    px(g, 2, 10, 14, 4, '#d8b37a');      // foot
+    px(g, 13, 4, 4, 7, '#d8b37a');       // head
+    px(g, 15, 0, 1, 5, '#c89a5b');       // antennae
+    px(g, 18, 1, 1, 4, '#c89a5b');
+    disc(g, 8, 7, 6, '#c08a4a');         // shell
+    disc(g, 8, 7, 4, '#d8a866');
+    disc(g, 8, 7, 2, '#a9743a');
+    px(g, 8, 3, 1, 4, '#a9743a');
   });
 }
 
@@ -450,11 +558,18 @@ function levelArt(level) {
   const a = {
     top: Array.from({ length: TOP_VARIANTS }, (_, v) => bakeTopTile(level, v)),
     fill: Array.from({ length: FILL_VARIANTS }, (_, v) => bakeFillTile(level, v)),
-    tuft: bakeTuft(level),
-    bush: bakeBush(level),
-    daisy: bakeDaisy(level),
+    float: Array.from({ length: TOP_VARIANTS }, (_, v) => bakeFloatTile(level, v)),
     tree: bakeTree(level),
     pine: bakePine(level),
+    bushBig: bakeBushBig(level),
+    bushSmall: bakeBushSmall(level),
+    tuft: bakeTuft(level),
+    daisy: bakeDaisy(level),
+    cluster: bakeDaisyCluster(level),
+    blueFlower: bakeBlueFlower(level),
+    mushroom: bakeMushroom(),
+    log: bakeLog(level),
+    snail: bakeSnail(),
   };
   level._art = a;
   return a;
@@ -476,13 +591,15 @@ function drawTerrain(ctx, level, cam, buf) {
       const x = tx * ATILE;
       const y = ty * ATILE;
       const open = !solid(tx, ty - 1);
-      if (open) ctx.drawImage(art.top[Math.floor(rnd(tx, ty, 2) * TOP_VARIANTS) % TOP_VARIANTS], x, y);
+      const hanging = open && !solid(tx, ty + 1);
+      const v = Math.floor(rnd(tx, ty, 2) * TOP_VARIANTS) % TOP_VARIANTS;
+      if (hanging) ctx.drawImage(art.float[v], x, y);
+      else if (open) ctx.drawImage(art.top[v], x, y);
       else ctx.drawImage(art.fill[Math.floor(rnd(tx, ty, 4) * FILL_VARIANTS) % FILL_VARIANTS], x, y);
 
       if (!solid(tx - 1, ty)) px(ctx, x, y, 2, ATILE, level.outline);
       if (!solid(tx + 1, ty)) px(ctx, x + ATILE - 2, y, 2, ATILE, level.outline);
-      if (!solid(tx, ty + 1)) px(ctx, x, y + ATILE - 2, ATILE, 2, level.outline);
-      if (!open && !solid(tx, ty - 1)) px(ctx, x, y, ATILE, 2, level.outline);
+      if (!hanging && !solid(tx, ty + 1)) px(ctx, x, y + ATILE - 2, ATILE, 2, level.outline);
 
       // Scenery, only where the tile above is genuinely empty. Trees need a
       // couple of clear tiles overhead so a canopy never swallows a platform.
@@ -491,11 +608,19 @@ function drawTerrain(ctx, level, cam, buf) {
         const roomy = ty > 1 &&
           rows[ty - 1][tx - 1] === '.' && rows[ty - 1][tx + 1] === '.' &&
           rows[ty - 2][tx] === '.' && rows[ty - 2][tx - 1] === '.' && rows[ty - 2][tx + 1] === '.';
-        if (r > 0.94 && roomy) ctx.drawImage(art.tree, x - 3, y - art.tree.height + 6);
-        else if (r > 0.90 && roomy) ctx.drawImage(art.pine, x + 4, y - art.pine.height + 6);
-        else if (r > 0.82) ctx.drawImage(art.bush, x + 6, y - art.bush.height + 5);
-        else if (r > 0.62) ctx.drawImage(art.tuft, x + 4 + Math.floor(rnd(tx, ty, 37) * 18), y - art.tuft.height + 5);
-        else if (r > 0.54) ctx.drawImage(art.daisy, x + 8 + Math.floor(rnd(tx, ty, 41) * 16), y - art.daisy.height + 5);
+        const jitter = (span) => x + Math.floor(rnd(tx, ty, 37) * span);
+        const sit = (spr, sx) => ctx.drawImage(spr, sx, y - spr.height + 5);
+        if (r > 0.955 && roomy) sit(art.tree, x - 8);
+        else if (r > 0.925 && roomy) sit(art.pine, x + 2);
+        else if (r > 0.885) sit(art.bushBig, x + 3);
+        else if (r > 0.845) sit(art.bushSmall, x + 8);
+        else if (r > 0.815) sit(art.log, x + 5);
+        else if (r > 0.790) sit(art.mushroom, jitter(20));
+        else if (r > 0.768) sit(art.snail, jitter(18));
+        else if (r > 0.720) sit(art.cluster, x + 8);
+        else if (r > 0.648) sit(art.daisy, jitter(26));
+        else if (r > 0.575) sit(art.blueFlower, jitter(24));
+        else if (r > 0.440) sit(art.tuft, jitter(22));
       }
     }
   }
@@ -613,7 +738,8 @@ function drawBackground(ctx, level, cam, buf, t) {
 
   if (level.title) return;
 
-  const buntY = Math.round(58 - camY * 0.16);
+  // Clamped so the bunting never drifts up over the flowers and level name.
+  const buntY = Math.max(36, Math.round(58 - camY * 0.16));
   const flags = ['#ff6b9d', '#ffd84d', '#6ad1c8', '#b48cff'];
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
   for (let x = 0; x < buf.w; x += 2) {
