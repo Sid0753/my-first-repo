@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Nandini's Birthday Run</title>
+<meta name="description" content="A little 2D platformer made as a birthday present. Help Nandini reach the cake.">
+<meta name="theme-color" content="#2b1f3a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎂</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="stage">
+    <canvas id="game" width="960" height="540" aria-label="Nandini's Birthday Run game screen"></canvas>
+
+    <div id="touch-controls" aria-hidden="true">
+      <div class="pad">
+        <button id="btn-left" class="tbtn" type="button">◀</button>
+        <button id="btn-right" class="tbtn" type="button">▶</button>
+      </div>
+      <button id="btn-jump" class="tbtn jump" type="button">JUMP</button>
+    </div>
+  </div>
+
+  <p id="footnote">Made with love for Nandini 🎂 — arrow keys / A–D to move, Space to jump, R to restart a level, M to mute.</p>
+
+  <script src="js/levels.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
