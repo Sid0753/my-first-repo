@@ -78,7 +78,7 @@ function disc(ctx, cx, cy, r, color) {
 /* Draw once into an offscreen canvas and reuse it every frame. With outline
  * set, a 1px dark border is traced around the result so the props match the
  * character art, which is outlined the same way. */
-function bake(w, h, draw, outline = true) {
+function bake(w, h, draw, outline = true, outlineColor = PAL.o) {
   const pad = outline ? 1 : 0;
   const c = document.createElement('canvas');
   c.width = w + pad * 2;
@@ -101,7 +101,7 @@ function bake(w, h, draw, outline = true) {
         if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) ring.push([x, y]);
       }
     }
-    g.fillStyle = PAL.o;
+    g.fillStyle = outlineColor;
     for (const [x, y] of ring) g.fillRect(x, y, 1, 1);
   }
   return c;
@@ -185,24 +185,68 @@ const SPR_FLOWER_OFF = bake(13, 13, (g) => {
   disc(g, 6, 6, 2, '#8e869c');
 });
 
-/* Spinning coin: four frames, the face narrowing as it turns edge-on. Shaped
- * like the rounded gold piece in the reference tileset. */
-const COIN_FRAMES = [8, 6, 3, 6].map((half) => bake(18, 18, (g) => {
-  for (let y = -8; y <= 8; y++) {
-    const w = Math.round(half * Math.pow(1 - (y * y) / 81, 0.42));
-    if (w <= 0) continue;
-    px(g, 9 - w, 9 + y, w * 2, 1, PAL.N);
-  }
-  if (half >= 6) {
-    for (let y = -6; y <= 6; y++) {
-      const w = Math.round((half - 3) * Math.pow(1 - (y * y) / 49, 0.42));
-      if (w <= 0) continue;
-      px(g, 9 - w, 9 + y, w * 2, 1, PAL.m);
+/* Spinning coin, eight frames through a full turn.
+ *
+ * The width follows a cosine, so the face narrows to an edge and opens out
+ * again at the physically right rate. What actually sells the rotation is the
+ * highlight: it sweeps across the face and leans the other way once the far
+ * side comes round, and the edge-on frames show a milled rim. Without those
+ * cues a symmetric widen/narrow just reads as a throb. */
+const COIN_OUT = '#7d4a10';
+const COIN_RIM = '#dc9a17';
+const COIN_FACE = '#ffcf33';
+const COIN_LIGHT = '#ffe886';
+const COIN_SHINE = '#fffbe4';
+
+/* Chamfered rather than round: the reference coin is a chunky octagon. */
+function coinRowHalf(y, hw) {
+  const a = Math.abs(y);
+  if (a > 8) return 0;
+  return Math.max(1, hw - Math.max(0, a - 4));
+}
+
+function bakeCoinFrame(step) {
+  const turn = Math.cos((step * Math.PI) / 4);
+  const hw = Math.max(1, Math.round(8 * Math.abs(turn)));
+  const back = turn < 0;
+  const CX = 10;
+  const CY = 10;
+  return bake(20, 20, (g) => {
+    for (let y = -8; y <= 8; y++) {
+      const w = coinRowHalf(y, hw);
+      px(g, CX - w, CY + y, w * 2, 1, COIN_RIM);
     }
-    px(g, 9 - half + 1, 9, half * 2 - 2, 3, PAL.M);
-    px(g, 7, 4, 2, 3, '#fff6d0');
-  }
-}));
+
+    if (hw <= 2) {                       // edge on: a milled rim
+      for (let y = -7; y <= 7; y += 3) px(g, CX - hw, CY + y, hw * 2, 1, COIN_OUT);
+      px(g, CX - hw, CY - 8, 1, 17, COIN_LIGHT);
+      return;
+    }
+
+    for (let y = -7; y <= 7; y++) {      // face
+      const w = Math.max(1, coinRowHalf(y, hw) - 2);
+      px(g, CX - w, CY + y, w * 2, 1, COIN_FACE);
+    }
+    if (hw >= 6) {
+      for (let y = -4; y <= 4; y++) {
+        const w = Math.max(1, coinRowHalf(y, hw) - 4);
+        px(g, CX - w, CY + y, w * 2, 1, COIN_LIGHT);
+      }
+    }
+
+    const lean = back ? -1 : 1;          // highlight sweeps the other way
+    for (let k = 0; k <= 8; k++) {
+      const y = k - 4;
+      const w = coinRowHalf(y, hw) - 2;
+      if (w < 1) continue;
+      const want = CX - lean * Math.round((k - 4) * 0.85) - 1;
+      const x = Math.max(CX - w, Math.min(CX + w - 2, want));
+      px(g, x, CY + y, 2, 1, COIN_SHINE);
+    }
+  }, true, COIN_OUT);
+}
+
+const COIN_FRAMES = Array.from({ length: 8 }, (_, i) => bakeCoinFrame(i));
 const SPR_COIN = COIN_FRAMES[0];
 
 function balloon(color, highlight, string) {
@@ -287,9 +331,8 @@ function drawCake(ctx, x, baseY, t) {
 }
 
 function drawCoin(ctx, c, t) {
-  const bob = Math.floor(t * 3 + c.seed) % 2;
-  const spr = COIN_FRAMES[Math.floor(t * 7 + c.seed * 2) % COIN_FRAMES.length];
-  ctx.drawImage(spr, aw(c.x) - Math.floor(spr.width / 2), aw(c.y) - Math.floor(spr.height / 2) + bob);
+  const spr = COIN_FRAMES[Math.floor(t * 11 + c.seed * 3) % COIN_FRAMES.length];
+  ctx.drawImage(spr, aw(c.x) - Math.floor(spr.width / 2), aw(c.y) - Math.floor(spr.height / 2));
 }
 
 function drawCheckpoint(ctx, c, t) {
